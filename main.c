@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <ctype.h>
 #include <stdbool.h>
 #include <sys/mman.h>
 #include <stdint.h>
@@ -42,10 +43,12 @@ void _traverse(Node *root, int depth)
     while (root)
     {
 	for (int i = 0; i < depth; i++) { printf("  "); }
-	printf("%d\n", root->type);
+	printf("%d, with text of %d\n", root->type, (root->text).length);
         if (root->first_child)
             _traverse(root->first_child, depth+1);
         root = root->next_sibling;
+	// Debug
+	free(root);
     }
 }
 
@@ -69,8 +72,6 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 
-	printf("File size: %zu\n", filesize);
-
 	Node *root = malloc(sizeof(Node));
 	Node *curr_node = root;
 
@@ -78,46 +79,63 @@ int main(int argc, char *argv[])
 
 	char *ptr = file_data;
 	char *end = file_data + st.st_size;
+
 	while (ptr < end) 
 	{
 		switch (*ptr)
 		{
-			// Skip whitespace?
-			case ' ':
-			break;
 			case '\n':
 			is_newline = true;
 			break;
-			// For now -> only H1s
+			// always top level
 			case '#': {
 				if (!is_newline) {
 					break;
 				}
+				// later -> check for another #, so on
+				if (ptr[1] == '\0' || !isspace((unsigned char)ptr[1])) {
+					break;
+            			}
 				Node *heading = malloc(sizeof(Node));
 				heading->type = NODE_HEADING;
-				// init text field!
+				heading->text = (StringView){ ptr, -1 };
+
 				if (curr_node->type == NODE_ROOT) {
 					curr_node->first_child = heading;
-					curr_node = heading;
 				} else if (curr_node->type == NODE_HEADING) {
 					curr_node->next_sibling = heading;
-					curr_node = heading;
-				} else {}
-				// If current node is neither (p) -> root->first_child (if exists) ... ?
+				} else {
+					Node *empty_child = root->first_child;
+					Node *prev = root;
+					while (empty_child != NULL) {
+						prev = empty_child;
+						empty_child = empty_child->next_sibling;
+					}
+					prev->next_sibling = heading;
+				}
+				// If current node is neither (p) -> root->first_child / traverse next empty sibling (if exists) ... ?
 				// putchar(*ptr);
+				curr_node = heading;
 				is_newline = false;
 				break;
 			}
 			default: {
 				if (!is_newline) {
-					// current node's (except root) text
+					(curr_node->text).length++;
 				} else {
+					Node *p = malloc(sizeof(Node));
+					p->type = NODE_PARAGRAPH;
+					p->text = (StringView){ ptr, 1 };
 					if (curr_node->type == NODE_PARAGRAPH) {
 						// next_sibling
+						curr_node->next_sibling = p;
 					} else {
 						// new paragraph node -> onto curr_node->first_child
-						// set StringView to start at the new pos - first char (ptr)
+						// set StringView to start at the new pos (ptr)
+						curr_node->first_child = p;
 					}
+					curr_node = p;
+					is_newline = false;
 				}
 				break;
 			}
@@ -128,7 +146,7 @@ int main(int argc, char *argv[])
 	// Debug
 	_traverse(root, 0);
 
-	// Debug
+	// Debug -> free dynamically
 	free(root->first_child);
 	free(root);
 
