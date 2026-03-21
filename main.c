@@ -12,6 +12,7 @@
 #include <unistd.h>
 
 #define FORMAT_VERSION "%PDF-2.0\n%\xE2\xE3\xCF\xD3\n\n"
+#define DEFAULT_OUTPUT_PATH "./output.pdf"
 
 typedef enum {
 	NODE_ROOT,
@@ -38,9 +39,9 @@ typedef struct {
     char *data;
     size_t capacity;
     size_t offset;
-} BufContext;
+} Buf_Context;
 
-void buf_ctx_append(BufContext *ctx, char *fmt, ...) {
+void buf_ctx_append(Buf_Context *ctx, char *fmt, ...) {
 	if (ctx->offset >= ctx->capacity - 1) return;
 
 	va_list args;
@@ -71,13 +72,10 @@ Arena arena_create(size_t cap) {
 }
 
 void* arena_alloc(Arena *arena, size_t size) {
-	// zero excess
 	size_t align = (size + 7) & ~7;
 	if (arena->offset + align > arena->cap) {
-		// realloc
 		exit(1);
 	};
-	// curr
 	void *ptr = arena->data + arena->offset;
 	arena->offset += align;
 	memset(ptr, 0, align);
@@ -88,7 +86,26 @@ void arena_destroy(Arena *arena) {
 	free(arena->data);
 }
 
-void render_node(Node *node, BufContext *ctx, int y);
+void render_node(Node *node, Buf_Context *ctx, int y);
+
+typedef struct {
+	FILE *f;
+	long offsets[256];
+	size_t obj_count;
+} PDF_Context;
+
+// bool
+int pdf_init(PDF_Context *ctx, const char *fp) {
+	FILE *f = fopen(fp, "wb");
+	if (f == NULL) return -1;
+
+	ctx->f = f;
+	ctx->offsets[0] = 0;
+	ctx->obj_count = 1;
+
+	fprintf(f, "%s", FORMAT_VERSION);
+	return 0;
+}
 
 int main(int argc, char *argv[]) 
 {
@@ -192,6 +209,7 @@ int main(int argc, char *argv[])
 					Node *p = arena_alloc(&arena, sizeof(Node));
 					p->type = NODE_PARAGRAPH;
 					p->text.start = ptr;
+					p->text.length++;
 					if (curr_node->type == NODE_PARAGRAPH) {
 						curr_node->next = p;
 					} else {
@@ -207,7 +225,7 @@ int main(int argc, char *argv[])
 	}
 
 	char stream_buf[1024] = {0};
-	BufContext ctx = {
+	Buf_Context ctx = {
 		.data = stream_buf,
 		.capacity = sizeof(stream_buf),
 		.offset = 0
@@ -215,9 +233,130 @@ int main(int argc, char *argv[])
 
 	buf_ctx_append(&ctx, "BT\n");
 	render_node(root->child, &ctx, 750);
-	buf_ctx_append(&ctx, "ET\n");
+	buf_ctx_append(&ctx, "ET");
 
-	printf("%s", stream_buf);
+	PDF_Context pctx = {0};
+	if (pdf_init(&pctx, DEFAULT_OUTPUT_PATH) != 0) {
+		return -1;
+	}
+
+	// doc catalog
+	// 1 0 obj 
+	// << 
+	// /Pages 2 0 R
+	// /Type /Catalog
+	// >> 
+	// endobj
+	//
+
+	int obj_id = pctx.obj_count++;
+	pctx.offsets[obj_id] = ftell(pctx.f);
+	fprintf(pctx.f, "%d 0 obj\n", obj_id);
+	fprintf(pctx.f, "<< /Pages %d 0 R /Type /Catalog >>\n", obj_id + 1);
+	fprintf(pctx.f, "endobj\n\n");
+
+	// page tree
+	// 2 0 obj
+	// << 
+	// /Count (page_count)
+	// /Kids [pointer_to_pages] (3 0 R)
+	// /Type /Pages
+	// <<
+	// endobj
+	
+	int tree = pctx.obj_count++;
+	pctx.offsets[tree] = ftell(pctx.f);
+	fprintf(pctx.f, "%d 0 obj\n", tree);
+	fprintf(pctx.f, "<< /Count 1 /Kids [%d 0 R] /Type /Pages >>\n", tree + 1);
+	fprintf(pctx.f, "endobj\n\n");
+
+	//
+	// individual pages
+	// 3 0 obj
+	// <<
+	// /Contents (pointer to contents) 4 0 R
+	// /Mediabox (page size)
+	// /Parent (pointer to tree)
+	// /Resources <<
+	// 	/Font << ... >>
+	// >>
+	// /Type /Page
+	// ...
+	
+	int page = pctx.obj_count++;
+	pctx.offsets[page] = ftell(pctx.f);
+	fprintf(pctx.f, "%d 0 obj\n", page);
+	fprintf(pctx.f, "<<\n");
+	fprintf(pctx.f, "	/Parent %d 0 R\n", tree);
+	fprintf(pctx.f, "	/Contents %d 0 R\n", page + 2);
+	fprintf(pctx.f, "	/Mediabox [0 0 612 792]\n");
+	fprintf(pctx.f, "	/Resources << /Font << /F1 %d 0 R >> >>\n", page + 1);
+	fprintf(pctx.f, ">>\n");
+	fprintf(pctx.f, "/Type /Page\n");
+	fprintf(pctx.f, "endobj\n\n");
+
+	//
+	// font
+	// 5 0 obj
+	// <<
+	// 	/BaseFont /Helvetica
+	// 	/Encoding ...
+	// 	/Subtype ...
+	// 	/Type /Font
+	// >>
+	// endobj
+	//
+	
+	int font = pctx.obj_count++;
+	pctx.offsets[font] = ftell(pctx.f);
+	fprintf(pctx.f, "%d 0 obj\n", font);
+	fprintf(pctx.f, "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\n");
+	fprintf(pctx.f, "endobj\n\n");
+
+ 
+	// page content objects (as pointed to in the pages objects)
+	// 4 0 obj
+	// <<
+	// 	/Length (stream len)
+	// >>
+	// stream
+	// [contents produced!]
+	// endstream
+	// endobj
+	//
+
+	int content = pctx.obj_count++;
+	pctx.offsets[content] = ftell(pctx.f);
+	fprintf(pctx.f, "%d 0 obj\n", content);
+	fprintf(pctx.f, "<< /Length %zu >>\n", ctx.offset);
+	fprintf(pctx.f, "stream\n");
+	fprintf(pctx.f, "%s\n", stream_buf);
+	fprintf(pctx.f, "endstream\n");
+	fprintf(pctx.f, "endobj\n\n");
+
+	//
+	// XREF table
+	// xref
+	// 0 6
+	// 0000000000 65535 f
+	// ...
+	//
+
+	size_t startxref = ftell(pctx.f);
+
+	fprintf(pctx.f, "xref\n");
+	fprintf(pctx.f, "0 %zu\n", pctx.obj_count);
+	fprintf(pctx.f, "0000000000 65535 f \n");
+
+	for (int i = 1; i < pctx.obj_count; i++) {
+		fprintf(pctx.f, "%010ld 00000 n \n", pctx.offsets[i]);
+	}
+
+	fprintf(pctx.f, "trailer\n");
+	fprintf(pctx.f, "<< /Size %zu /Root %d 0 R >>\n", pctx.obj_count, obj_id);
+	fprintf(pctx.f, "startxref\n%ld\n%%%%EOF\n", startxref);
+    
+	fclose(pctx.f);
 
 	arena_destroy(&arena);
 	munmap(file_data, filesize);
@@ -225,23 +364,23 @@ int main(int argc, char *argv[])
 	return 0;
 }
 
-void render_node(Node *node, BufContext *ctx, int y) {
+void render_node(Node *node, Buf_Context *ctx, int y) {
 	if (node == NULL) return;
 	while (node)
 	{
 		switch (node->type) {
 			case NODE_HEADING: {
-				buf_ctx_append(ctx, "/F1 24 Tf 72 %d Td (%.*s) Tj\n", y, (node->text).length, (node->text).start);
+				buf_ctx_append(ctx, "/F1 24 Tf 1 0 0 1 72 %d Tm (%.*s) Tj\n", y, (node->text).length, (node->text).start);
 				y -= 30;
 				break;
 			}
 			case NODE_LIST: {
-				buf_ctx_append(ctx, "/F1 12 Tf 72 %d Td (- %.*s) Tj\n", y, (node->text).length, (node->text).start);
+				buf_ctx_append(ctx, "/F1 12 Tf 1 0 0 1 72 %d Tm (- %.*s) Tj\n", y, (node->text).length, (node->text).start);
 				y -= 15;
 				break;
 			}
 			case NODE_PARAGRAPH: {
-				buf_ctx_append(ctx, "/F1 12 Tf 72 %d Td (%.*s) Tj\n", y, (node->text).length, (node->text).start);
+				buf_ctx_append(ctx, "/F1 12 Tf 1 0 0 1 72 %d Tm (%.*s) Tj\n", y, (node->text).length, (node->text).start);
 				y -= 15;
 				break;
 			}
@@ -252,45 +391,4 @@ void render_node(Node *node, BufContext *ctx, int y) {
         		render_node(node->child, ctx, y);
         	node = node->next;
 	}
-}
-
-int main2()
-{
-	FILE *fptr = fopen("output.pdf", "wb");
-	if (!fptr) return -1;
-
-	char content_string[512];
-	char user_content[] = "Hello Note";
-	uint64_t bytes_written = 0;
-	sprintf(content_string, "BT\n  /F1 18 Tf\n  50 700 Td\n  (%s) Tj\nET", user_content);
-
-	char header[64];
-	sprintf(header, "%s", FORMAT_VERSION);
-	bytes_written += fwrite(&header, sizeof(char), strlen(header), fptr);
-
-	char root[] = "1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n\n";
-	bytes_written += fwrite(&root, sizeof(char), strlen(root), fptr);
-
-	char tree[] = "2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n\n";
-	bytes_written += fwrite(&tree, sizeof(char), strlen(tree), fptr);
-
-	char page[] = "3 0 obj\n<<\n  /Type /Page\n  /Parent 2 0 R\n  /MediaBox [0 0 612 792]\n  /Resources << /Font << /F1 4 0 R >> >>\n  /Contents 5 0 R\n>>\nendobj\n\n";
-	bytes_written += fwrite(&page, sizeof(char), strlen(page), fptr);
-
-	char fonts_res[] = "4 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n\n";
-	bytes_written += fwrite(&fonts_res, sizeof(char), strlen(fonts_res), fptr);
-
-	char contents[1024];
-	sprintf(contents, "5 0 obj\n<< /Length %ld >>\nstream\n%s\nendstream\nendobj\n\n", strlen(content_string), content_string);
-	bytes_written += fwrite(contents, sizeof(char), strlen(contents), fptr);
-
-	// TODO: compute the offset automatically while writing
-	char xref[] = "xref\n0 6\n0000000000 65535 f\n0000000015 00000 n\n0000000064 00000 n\n0000000122 00000 n\n0000000262 00000 n\n0000000334 00000 n\n";
-	fwrite(&xref, sizeof(char), strlen(xref), fptr);
-
-	char trailer[512];
-	sprintf(trailer, "trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n%llu\n", (unsigned long long)bytes_written);
-	fwrite(trailer, sizeof(char), strlen(xref), fptr);
-	fputs("%%EOF\n", fptr);
-	return 0;
 }
