@@ -1,3 +1,5 @@
+#include <stddef.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <ctype.h>
 #include <stdbool.h>
@@ -9,14 +11,13 @@
 #include <fcntl.h>
 #include <unistd.h>
 
-#define FORMAT_VERSION "%PDF-2.0\n%µ¶\n\n"
+#define FORMAT_VERSION "%PDF-2.0\n%\xE2\xE3\xCF\xD3\n\n"
 
-// Root, heading 1 -> text, etc as a tree -> allocate the root at thee beginning (arean)
 typedef enum {
 	NODE_ROOT,
 	NODE_HEADING,
 	NODE_PARAGRAPH,
-	NODE_TEXT /* for heading and paragraph */
+	NODE_LIST,
 } NodeType;
 
 typedef struct {
@@ -26,31 +27,68 @@ typedef struct {
 
 typedef struct Node {
 	NodeType type;
-
-	// union for either a placeholder (root) or a text field
-	// for now -> assume all nodes have text
+	// idea: stringview linked list / array with regular text, bolded and italic as separate items?
 	StringView text;
 
-	// child
-	struct Node *first_child;
-	// next
-	struct Node *next_sibling;
+	struct Node *child;
+	struct Node *next;
 } Node;
 
-void _traverse(Node *root, int depth)
-{
-    if (root == NULL) return;
-    while (root)
-    {
-	for (int i = 0; i < depth; i++) { printf("  "); }
-	printf("%d, with text of %d\n", root->type, (root->text).length);
-        if (root->first_child)
-            _traverse(root->first_child, depth+1);
-        root = root->next_sibling;
-	// Debug
-	free(root);
-    }
+typedef struct {
+    char *data;
+    size_t capacity;
+    size_t offset;
+} BufContext;
+
+void buf_ctx_append(BufContext *ctx, char *fmt, ...) {
+	if (ctx->offset >= ctx->capacity - 1) return;
+
+	va_list args;
+	va_start(args, fmt);
+	int written = vsnprintf(ctx->data + ctx->offset, ctx->capacity - ctx->offset, fmt, args);
+	va_end(args);
+
+	if (written > 0) {
+		ctx->offset += written;
+        	if (ctx->offset >= ctx->capacity) {
+        		ctx->offset = ctx->capacity - 1; 
+        	}
+	}
 }
+
+typedef struct {
+	uint8_t *data;
+	size_t cap;
+	size_t offset;
+} Arena;
+
+Arena arena_create(size_t cap) {
+	return (Arena){
+		.data = malloc(cap),
+		.cap = cap,
+		.offset = 0
+	};
+}
+
+void* arena_alloc(Arena *arena, size_t size) {
+	// zero excess
+	size_t align = (size + 7) & ~7;
+	if (arena->offset + align > arena->cap) {
+		// realloc
+		exit(1);
+	};
+	// curr
+	void *ptr = arena->data + arena->offset;
+	arena->offset += align;
+	memset(ptr, 0, align);
+	return ptr;
+}
+
+void arena_destroy(Arena *arena) {
+	free(arena->data);
+}
+
+void render_node(Node *node, BufContext *ctx, int y);
 
 int main(int argc, char *argv[]) 
 {
@@ -71,9 +109,11 @@ int main(int argc, char *argv[])
 		close(fd);
 		return -1;
 	}
+	Arena arena = arena_create(1024*1024);
 
-	Node *root = malloc(sizeof(Node));
+	Node *root = arena_alloc(&arena, sizeof(Node));
 	Node *curr_node = root;
+	Node *last_root_child = root->child;
 
 	bool is_newline = true;
 
@@ -84,55 +124,78 @@ int main(int argc, char *argv[])
 	{
 		switch (*ptr)
 		{
-			case '\n':
-			is_newline = true;
-			break;
-			// always top level
+			case '\n': {
+				is_newline = true;
+				break;
+			}
 			case '#': {
 				if (!is_newline) {
-					break;
+					goto paragraph;
 				}
-				// later -> check for another #, so on
-				if (ptr[1] == '\0' || !isspace((unsigned char)ptr[1])) {
+				if (ptr + 1 >= end) {
 					break;
             			}
-				Node *heading = malloc(sizeof(Node));
-				heading->type = NODE_HEADING;
-				heading->text = (StringView){ ptr, -1 };
-
-				if (curr_node->type == NODE_ROOT) {
-					curr_node->first_child = heading;
-				} else if (curr_node->type == NODE_HEADING) {
-					curr_node->next_sibling = heading;
-				} else {
-					Node *empty_child = root->first_child;
-					Node *prev = root;
-					while (empty_child != NULL) {
-						prev = empty_child;
-						empty_child = empty_child->next_sibling;
-					}
-					prev->next_sibling = heading;
+				if (!isspace((unsigned char)ptr[1])) {
+					goto paragraph;
 				}
-				// If current node is neither (p) -> root->first_child / traverse next empty sibling (if exists) ... ?
-				// putchar(*ptr);
+				Node *heading = arena_alloc(&arena, sizeof(Node));
+				heading->type = NODE_HEADING;
+				if (curr_node->type == NODE_ROOT) {
+					curr_node->child = heading;
+					last_root_child = heading;
+				} else if (curr_node->type == NODE_HEADING) {
+					curr_node->next = heading;
+					last_root_child = heading;
+				} else {
+					if (last_root_child == NULL) {
+						root->child = heading;
+						last_root_child = heading;
+					} else {
+						last_root_child->next = heading;
+						last_root_child = heading;
+					}
+				}
+				ptr++;
 				curr_node = heading;
 				is_newline = false;
 				break;
 			}
-			default: {
+			case '-': {
 				if (!is_newline) {
+					goto paragraph;
+				}
+				if (ptr + 1 >= end) {
+					break;
+            			}
+				if (!isspace((unsigned char)ptr[1])) {
+					goto paragraph;
+				}
+				Node *list = arena_alloc(&arena, sizeof(Node));
+				list->type = NODE_LIST;
+				if (curr_node->type == NODE_ROOT || curr_node->type == NODE_HEADING) {
+					curr_node->child = list;
+				} else {
+					curr_node->next = list;
+				}
+				ptr++;
+				curr_node = list;
+				is_newline = false;
+				break;
+			}
+			default: paragraph: {
+				if (!is_newline) {
+					if ((curr_node->text).start == NULL) {
+						(curr_node->text).start = ptr;
+					}
 					(curr_node->text).length++;
 				} else {
-					Node *p = malloc(sizeof(Node));
+					Node *p = arena_alloc(&arena, sizeof(Node));
 					p->type = NODE_PARAGRAPH;
-					p->text = (StringView){ ptr, 1 };
+					p->text.start = ptr;
 					if (curr_node->type == NODE_PARAGRAPH) {
-						// next_sibling
-						curr_node->next_sibling = p;
+						curr_node->next = p;
 					} else {
-						// new paragraph node -> onto curr_node->first_child
-						// set StringView to start at the new pos (ptr)
-						curr_node->first_child = p;
+						curr_node->child = p;
 					}
 					curr_node = p;
 					is_newline = false;
@@ -143,16 +206,52 @@ int main(int argc, char *argv[])
 		ptr++;
 	}
 
-	// Debug
-	_traverse(root, 0);
+	char stream_buf[1024] = {0};
+	BufContext ctx = {
+		.data = stream_buf,
+		.capacity = sizeof(stream_buf),
+		.offset = 0
+	};
 
-	// Debug -> free dynamically
-	free(root->first_child);
-	free(root);
+	buf_ctx_append(&ctx, "BT\n");
+	render_node(root->child, &ctx, 750);
+	buf_ctx_append(&ctx, "ET\n");
 
+	printf("%s", stream_buf);
+
+	arena_destroy(&arena);
 	munmap(file_data, filesize);
 	close(fd);
 	return 0;
+}
+
+void render_node(Node *node, BufContext *ctx, int y) {
+	if (node == NULL) return;
+	while (node)
+	{
+		switch (node->type) {
+			case NODE_HEADING: {
+				buf_ctx_append(ctx, "/F1 24 Tf 72 %d Td (%.*s) Tj\n", y, (node->text).length, (node->text).start);
+				y -= 30;
+				break;
+			}
+			case NODE_LIST: {
+				buf_ctx_append(ctx, "/F1 12 Tf 72 %d Td (- %.*s) Tj\n", y, (node->text).length, (node->text).start);
+				y -= 15;
+				break;
+			}
+			case NODE_PARAGRAPH: {
+				buf_ctx_append(ctx, "/F1 12 Tf 72 %d Td (%.*s) Tj\n", y, (node->text).length, (node->text).start);
+				y -= 15;
+				break;
+			}
+			default:
+				break;
+		}
+        	if (node->child)
+        		render_node(node->child, ctx, y);
+        	node = node->next;
+	}
 }
 
 int main2()
@@ -193,4 +292,5 @@ int main2()
 	sprintf(trailer, "trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n%llu\n", (unsigned long long)bytes_written);
 	fwrite(trailer, sizeof(char), strlen(xref), fptr);
 	fputs("%%EOF\n", fptr);
+	return 0;
 }
