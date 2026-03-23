@@ -24,14 +24,19 @@ endobj
 endobj
 
 5 0 obj
-<< /Length 284 >>
+<< /Length 547 >>
 stream
 BT
 /F1 24 Tf 1 0 0 1 72 750 Tm (note-compiler) Tj
 /F1 12 Tf 1 0 0 1 72 720 Tm (A simple Markdown compiler to a PDF spec subset) Tj
-/F1 12 Tf 1 0 0 1 72 705 Tm (- CMake) Tj
-/F1 12 Tf 1 0 0 1 72 690 Tm (- compile_commands.json) Tj
-/F1 12 Tf 1 0 0 1 72 675 Tm (- SV struct helpers) Tj
+/F1 12 Tf 1 0 0 1 72 705 Tm (- **Refactor the renderer**) Tj
+/F1 12 Tf 1 0 0 1 72 690 Tm (- Word-wrapping) Tj
+/F1 12 Tf 1 0 0 1 72 675 Tm (- **non-ASCII**) Tj
+/F1 12 Tf 1 0 0 1 72 660 Tm (- **Multipage**) Tj
+/F1 12 Tf 1 0 0 1 72 645 Tm (- Bolded, italic text) Tj
+/F1 12 Tf 1 0 0 1 72 630 Tm (- CMake) Tj
+/F1 12 Tf 1 0 0 1 72 615 Tm (- compile_commands.json) Tj
+/F1 12 Tf 1 0 0 1 72 600 Tm (- SV struct helpers) Tj
 ET
 endstream
 endobj
@@ -47,5 +52,5 @@ xref
 trailer
 << /Size 6 /Root 1 0 R >>
 startxref
-662
+1054
 %%EOF

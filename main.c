@@ -11,7 +11,8 @@
 #include <fcntl.h>
 #include <unistd.h>
 
-#define FORMAT_VERSION "%PDF-2.0\n%\xE2\xE3\xCF\xD3\n\n"
+#include "render.c"
+
 #define DEFAULT_OUTPUT_PATH "./output.pdf"
 
 typedef enum {
@@ -19,17 +20,17 @@ typedef enum {
 	NODE_HEADING,
 	NODE_PARAGRAPH,
 	NODE_LIST,
-} NodeType;
+} Node_Type;
 
 typedef struct {
 	const char *start;
 	int length;
-} StringView;
+} String_View;
 
 typedef struct Node {
-	NodeType type;
+	Node_Type type;
 	// idea: stringview linked list / array with regular text, bolded and italic as separate items?
-	StringView text;
+	String_View text;
 
 	struct Node *child;
 	struct Node *next;
@@ -87,25 +88,6 @@ void arena_destroy(Arena *arena) {
 }
 
 void render_node(Node *node, Buf_Context *ctx, int y);
-
-typedef struct {
-	FILE *f;
-	long offsets[256];
-	size_t obj_count;
-} PDF_Context;
-
-// bool
-int pdf_init(PDF_Context *ctx, const char *fp) {
-	FILE *f = fopen(fp, "wb");
-	if (f == NULL) return -1;
-
-	ctx->f = f;
-	ctx->offsets[0] = 0;
-	ctx->obj_count = 1;
-
-	fprintf(f, "%s", FORMAT_VERSION);
-	return 0;
-}
 
 int main(int argc, char *argv[]) 
 {
@@ -195,16 +177,17 @@ int main(int argc, char *argv[])
 					curr_node->next = list;
 				}
 				ptr++;
+
 				curr_node = list;
 				is_newline = false;
 				break;
 			}
 			default: paragraph: {
 				if (!is_newline) {
-					if ((curr_node->text).start == NULL) {
+					if (curr_node->text.start == NULL) {
 						(curr_node->text).start = ptr;
 					}
-					(curr_node->text).length++;
+					curr_node->text.length++;
 				} else {
 					Node *p = arena_alloc(&arena, sizeof(Node));
 					p->type = NODE_PARAGRAPH;
@@ -234,128 +217,49 @@ int main(int argc, char *argv[])
 	buf_ctx_append(&ctx, "BT\n");
 	render_node(root->child, &ctx, 750);
 	buf_ctx_append(&ctx, "ET");
+	//
+	// DEBUG
+	int kids[] = {0};
+	kids[0] = 3;
 
 	PDF_Context pctx = {0};
-	if (pdf_init(&pctx, DEFAULT_OUTPUT_PATH) != 0) {
+	if (!pdf_init(&pctx, DEFAULT_OUTPUT_PATH)) {
 		return -1;
 	}
 
-	// doc catalog
-	// 1 0 obj 
-	// << 
-	// /Pages 2 0 R
-	// /Type /Catalog
-	// >> 
-	// endobj
-	//
+	PDF_Object cat = {
+		.id = 1,
+		.type = PDF_CATALOG,
+		.catalog = { 2 }
+	};
+	PDF_Object tree = {
+		.id = 2,
+		.type = PDF_TREE,
+		.tree = { 1, kids },
+	};
+	PDF_Object page = {
+		.id = 3,
+		.type = PDF_PAGE,
+		.page = { 5, 612, 792, tree.id, 4 },
+	};
+	PDF_Object font = {
+		.id = 4,
+		.type = PDF_FONT,
+	};
+	PDF_Object contents = {
+		.id = 5,
+		.type = PDF_CONTENT,
+		.content = { ctx.offset, stream_buf }
+	};
+	 
+	pdf_obj_write(&pctx, &cat);
+	pdf_obj_write(&pctx, &tree);
+	pdf_obj_write(&pctx, &page);
+	pdf_obj_write(&pctx, &font);
+	pdf_obj_write(&pctx, &contents);
 
-	int obj_id = pctx.obj_count++;
-	pctx.offsets[obj_id] = ftell(pctx.f);
-	fprintf(pctx.f, "%d 0 obj\n", obj_id);
-	fprintf(pctx.f, "<< /Pages %d 0 R /Type /Catalog >>\n", obj_id + 1);
-	fprintf(pctx.f, "endobj\n\n");
-
-	// page tree
-	// 2 0 obj
-	// << 
-	// /Count (page_count)
-	// /Kids [pointer_to_pages] (3 0 R)
-	// /Type /Pages
-	// <<
-	// endobj
-	
-	int tree = pctx.obj_count++;
-	pctx.offsets[tree] = ftell(pctx.f);
-	fprintf(pctx.f, "%d 0 obj\n", tree);
-	fprintf(pctx.f, "<< /Count 1 /Kids [%d 0 R] /Type /Pages >>\n", tree + 1);
-	fprintf(pctx.f, "endobj\n\n");
-
-	//
-	// individual pages
-	// 3 0 obj
-	// <<
-	// /Contents (pointer to contents) 4 0 R
-	// /Mediabox (page size)
-	// /Parent (pointer to tree)
-	// /Resources <<
-	// 	/Font << ... >>
-	// >>
-	// /Type /Page
-	// ...
-	
-	int page = pctx.obj_count++;
-	pctx.offsets[page] = ftell(pctx.f);
-	fprintf(pctx.f, "%d 0 obj\n", page);
-	fprintf(pctx.f, "<<\n");
-	fprintf(pctx.f, "	/Parent %d 0 R\n", tree);
-	fprintf(pctx.f, "	/Contents %d 0 R\n", page + 2);
-	fprintf(pctx.f, "	/Mediabox [0 0 612 792]\n");
-	fprintf(pctx.f, "	/Resources << /Font << /F1 %d 0 R >> >>\n", page + 1);
-	fprintf(pctx.f, ">>\n");
-	fprintf(pctx.f, "/Type /Page\n");
-	fprintf(pctx.f, "endobj\n\n");
-
-	//
-	// font
-	// 5 0 obj
-	// <<
-	// 	/BaseFont /Helvetica
-	// 	/Encoding ...
-	// 	/Subtype ...
-	// 	/Type /Font
-	// >>
-	// endobj
-	//
-	
-	int font = pctx.obj_count++;
-	pctx.offsets[font] = ftell(pctx.f);
-	fprintf(pctx.f, "%d 0 obj\n", font);
-	fprintf(pctx.f, "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\n");
-	fprintf(pctx.f, "endobj\n\n");
-
- 
-	// page content objects (as pointed to in the pages objects)
-	// 4 0 obj
-	// <<
-	// 	/Length (stream len)
-	// >>
-	// stream
-	// [contents produced!]
-	// endstream
-	// endobj
-	//
-
-	int content = pctx.obj_count++;
-	pctx.offsets[content] = ftell(pctx.f);
-	fprintf(pctx.f, "%d 0 obj\n", content);
-	fprintf(pctx.f, "<< /Length %zu >>\n", ctx.offset);
-	fprintf(pctx.f, "stream\n");
-	fprintf(pctx.f, "%s\n", stream_buf);
-	fprintf(pctx.f, "endstream\n");
-	fprintf(pctx.f, "endobj\n\n");
-
-	//
-	// XREF table
-	// xref
-	// 0 6
-	// 0000000000 65535 f
-	// ...
-	//
-
-	size_t startxref = ftell(pctx.f);
-
-	fprintf(pctx.f, "xref\n");
-	fprintf(pctx.f, "0 %zu\n", pctx.obj_count);
-	fprintf(pctx.f, "0000000000 65535 f \n");
-
-	for (int i = 1; i < pctx.obj_count; i++) {
-		fprintf(pctx.f, "%010ld 00000 n \n", pctx.offsets[i]);
-	}
-
-	fprintf(pctx.f, "trailer\n");
-	fprintf(pctx.f, "<< /Size %zu /Root %d 0 R >>\n", pctx.obj_count, obj_id);
-	fprintf(pctx.f, "startxref\n%ld\n%%%%EOF\n", startxref);
-    
+	pdf_xref_table_write(&pctx);
+	pdf_trailer_write(&pctx, cat.id);
 	fclose(pctx.f);
 
 	arena_destroy(&arena);
@@ -370,17 +274,20 @@ void render_node(Node *node, Buf_Context *ctx, int y) {
 	{
 		switch (node->type) {
 			case NODE_HEADING: {
-				buf_ctx_append(ctx, "/F1 24 Tf 1 0 0 1 72 %d Tm (%.*s) Tj\n", y, (node->text).length, (node->text).start);
+				buf_ctx_append(ctx, "/F1 24 Tf 1 0 0 1 72 %d Tm (%.*s) Tj\n", y, node->text.length, node->text.start);
+				// TODO: define
 				y -= 30;
 				break;
 			}
 			case NODE_LIST: {
-				buf_ctx_append(ctx, "/F1 12 Tf 1 0 0 1 72 %d Tm (- %.*s) Tj\n", y, (node->text).length, (node->text).start);
+				buf_ctx_append(ctx, "/F1 12 Tf 1 0 0 1 72 %d Tm (- %.*s) Tj\n", y, node->text.length, node->text.start);
+				// TODO: define
 				y -= 15;
 				break;
 			}
 			case NODE_PARAGRAPH: {
-				buf_ctx_append(ctx, "/F1 12 Tf 1 0 0 1 72 %d Tm (%.*s) Tj\n", y, (node->text).length, (node->text).start);
+				buf_ctx_append(ctx, "/F1 12 Tf 1 0 0 1 72 %d Tm (%.*s) Tj\n", y, node->text.length, node->text.start);
+				// TODO: define
 				y -= 15;
 				break;
 			}
