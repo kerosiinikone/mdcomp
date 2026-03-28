@@ -149,6 +149,7 @@ int main(int argc, char *argv[])
 			case '\n': {
 				is_newline = true;
 			} break;
+			// TODO: smaller headings
 			case '#': {
 				if (ptr + 1 >= end) {
 					break;
@@ -278,7 +279,7 @@ int main(int argc, char *argv[])
 		ptr++;
 	}
 
-	char stream_buf[1024] = {0};
+	char stream_buf[10*1024] = {0};
 	Buf_Context ctx = {
 		.data = stream_buf,
 		.capacity = sizeof(stream_buf),
@@ -358,6 +359,10 @@ void render_node(Node *node, Buf_Context *ctx, int y) {
 		switch (node->type) {
 			case NODE_HEADING: {
 				Text_Span *curr = node->text;
+
+				int cursor = 72;
+				int last_space_offset = 0;
+
 				while (curr) {
 					switch (curr->type) {
 						case STRING_REGULAR:
@@ -370,7 +375,46 @@ void render_node(Node *node, Buf_Context *ctx, int y) {
 						buf_ctx_append(ctx, "/F3 24 Tf\n");
 						break;
 					}
-					buf_ctx_append(ctx, "(%.*s) Tj\n", curr->view.length, curr->view.start);
+
+					char *span_ptr = (char*)curr->view.start;
+					char *end = span_ptr + curr->view.length;
+					char *segment_start = span_ptr;
+					int char_index = 0;
+					
+					while (span_ptr < end) {
+						if (cursor > 612 - 2*72) {
+							int emit_length = last_space_offset > 0 ? last_space_offset : char_index;
+							buf_ctx_append(ctx, "(%.*s) Tj\n", emit_length, segment_start);
+							y -= HEADER_OFFSET;
+							buf_ctx_append(ctx, "1 0 0 1 72 %d Tm\n", y);
+							
+							switch (curr->type) {
+								case STRING_REGULAR:
+								buf_ctx_append(ctx, "/F1 24 Tf\n");
+								break;
+								case STRING_BOLD:
+								buf_ctx_append(ctx, "/F2 24 Tf\n");
+								break;
+								case STRING_ITALIC:
+								buf_ctx_append(ctx, "/F3 24 Tf\n");
+								break;
+							}
+							segment_start = span_ptr - char_index + emit_length;
+							cursor = 72;
+							char_index = 0;
+							last_space_offset = 0;
+						}
+						if (isspace(*span_ptr)) {
+							last_space_offset = char_index;
+						}
+						cursor += 12;
+						span_ptr++;
+						char_index++;
+					}
+					int rest = span_ptr - segment_start;
+					if (rest > 0) {
+						buf_ctx_append(ctx, "(%.*s) Tj\n", rest, segment_start);
+					}
 					curr = curr->next;
 				}
 				y -= HEADER_OFFSET;

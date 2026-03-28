@@ -1,4 +1,4 @@
-# note-compiler
+# note-compiler note-compiler note-compiler note-compiler note-compiler note-compiler note-compiler note-compiler note-compiler note-compiler note-compiler
 
 A simple Markdown compiler to a **PDF spec subset**
 
@@ -8,7 +8,9 @@ A simple Markdown compiler to a **PDF spec subset**
 - **Multipage**
 - Bolded, italic text
 - CMake
-- compile_commands.json
+- compile___commands.json
 - SV struct helpers
 - .h files -> compilation units, linking
 - _const chars_
+
+ssdfsdfsdfsdfdsdfsdfsdfsdfdsdfsdfsdfsdfdsdfsdfsdfsdfdsdfsdfsdfsdfdsdfsdfsdfsdfdsdfsdfsdfsdfdsdfsdfsdfsdfdsdfsdfsdfsdfdsdfsdfsdfsdfdsdfsdfsdfsdfdsdfsdfsdfsdfdsdfsdfsdfsdfdsdfsdfsdfsdfdsdfsdfsdfsdfdsdfsdfsdfsdfdsdfsdfsdfsdfdsdfsdfsdfsdfddfsdfsdfsdfd
