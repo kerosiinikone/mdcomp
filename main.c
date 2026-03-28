@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -15,6 +16,11 @@
 
 #define DEFAULT_OUTPUT_PATH "./output.pdf"
 
+#define ALIGN_8(size) ((size) + 7) & ~7
+
+#define HEADER_OFFSET 30
+#define BODY_OFFSET 15
+
 typedef enum {
 	NODE_ROOT,
 	NODE_HEADING,
@@ -22,15 +28,27 @@ typedef enum {
 	NODE_LIST,
 } Node_Type;
 
+typedef enum {
+	STRING_REGULAR,
+	STRING_BOLD,
+	STRING_ITALIC
+} String_Type;
+
 typedef struct {
 	const char *start;
 	int length;
 } String_View;
 
+typedef struct Text_Span {
+	struct Text_Span *next;
+	String_Type type;
+	String_View view;
+} Text_Span;
+
 typedef struct Node {
 	Node_Type type;
-	// idea: stringview linked list / array with regular text, bolded and italic as separate items?
-	String_View text;
+	
+	Text_Span *text;
 
 	struct Node *child;
 	struct Node *next;
@@ -42,16 +60,17 @@ typedef struct {
     size_t offset;
 } Buf_Context;
 
+// TODO: realloc / return false if fails?
 void buf_ctx_append(Buf_Context *ctx, char *fmt, ...) {
 	if (ctx->offset >= ctx->capacity - 1) return;
 
 	va_list args;
 	va_start(args, fmt);
-	int written = vsnprintf(ctx->data + ctx->offset, ctx->capacity - ctx->offset, fmt, args);
+	int n = vsnprintf(ctx->data + ctx->offset, ctx->capacity - ctx->offset, fmt, args);
 	va_end(args);
 
-	if (written > 0) {
-		ctx->offset += written;
+	if (n > 0) {
+		ctx->offset += n;
         	if (ctx->offset >= ctx->capacity) {
         		ctx->offset = ctx->capacity - 1; 
         	}
@@ -73,9 +92,9 @@ Arena arena_create(size_t cap) {
 }
 
 void* arena_alloc(Arena *arena, size_t size) {
-	size_t align = (size + 7) & ~7;
+	size_t align = ALIGN_8(size);
 	if (arena->offset + align > arena->cap) {
-		exit(1);
+		return NULL;
 	};
 	void *ptr = arena->data + arena->offset;
 	arena->offset += align;
@@ -110,6 +129,7 @@ int main(int argc, char *argv[])
 	}
 	Arena arena = arena_create(1024*1024);
 
+	// TODO: check for NULL
 	Node *root = arena_alloc(&arena, sizeof(Node));
 	Node *curr_node = root;
 	Node *last_root_child = root->child;
@@ -119,26 +139,33 @@ int main(int argc, char *argv[])
 	char *ptr = file_data;
 	char *end = file_data + st.st_size;
 
+	Text_Span *curr_span = NULL;
+	String_Type curr_fmt = STRING_REGULAR;
+
 	while (ptr < end) 
 	{
 		switch (*ptr)
 		{
 			case '\n': {
 				is_newline = true;
-				break;
-			}
+			} break;
 			case '#': {
-				if (!is_newline) {
-					goto paragraph;
-				}
 				if (ptr + 1 >= end) {
 					break;
             			}
-				if (!isspace((unsigned char)ptr[1])) {
-					goto paragraph;
+				if (!is_newline || !isspace((unsigned char)ptr[1])) {
+					goto add_char;
 				}
+
 				Node *heading = arena_alloc(&arena, sizeof(Node));
 				heading->type = NODE_HEADING;
+
+				Text_Span *span = arena_alloc(&arena, sizeof(Text_Span));
+				span->type = STRING_REGULAR;
+				heading->text = span;
+				curr_span = span;
+				curr_fmt = STRING_REGULAR;
+
 				if (curr_node->type == NODE_ROOT) {
 					curr_node->child = heading;
 					last_root_child = heading;
@@ -157,42 +184,80 @@ int main(int argc, char *argv[])
 				ptr++;
 				curr_node = heading;
 				is_newline = false;
-				break;
-			}
+			} break;
 			case '-': {
-				if (!is_newline) {
-					goto paragraph;
-				}
 				if (ptr + 1 >= end) {
 					break;
             			}
-				if (!isspace((unsigned char)ptr[1])) {
-					goto paragraph;
+				if (!is_newline || !isspace((unsigned char)ptr[1])) {
+					goto add_char;
 				}
+
 				Node *list = arena_alloc(&arena, sizeof(Node));
 				list->type = NODE_LIST;
+
+				Text_Span *span = arena_alloc(&arena, sizeof(Text_Span));
+				span->type = STRING_REGULAR;
+				list->text = span;
+				curr_span = span;
+				curr_fmt = STRING_REGULAR;
+
 				if (curr_node->type == NODE_ROOT || curr_node->type == NODE_HEADING) {
 					curr_node->child = list;
 				} else {
 					curr_node->next = list;
 				}
 				ptr++;
-
 				curr_node = list;
 				is_newline = false;
-				break;
-			}
-			default: paragraph: {
-				if (!is_newline) {
-					if (curr_node->text.start == NULL) {
-						(curr_node->text).start = ptr;
-					}
-					curr_node->text.length++;
+			} break;
+			case '*': {
+				if (ptr + 1 >= end || ptr[1] != '*') {
+					goto add_char;
+				}
+				
+				if (curr_fmt == STRING_BOLD) {
+					curr_fmt = STRING_REGULAR;
 				} else {
+					curr_fmt = STRING_BOLD;
+				}
+				
+				Text_Span *new_span = arena_alloc(&arena, sizeof(Text_Span));
+				new_span->type = curr_fmt;
+				
+				if (curr_span) {
+					curr_span->next = new_span;
+				}
+				curr_span = new_span;
+				
+				ptr++;
+			} break;
+			case '_': {
+				if (curr_fmt == STRING_ITALIC) {
+					curr_fmt = STRING_REGULAR;
+				} else {
+					curr_fmt = STRING_ITALIC;
+				}
+				
+				Text_Span *new_span = arena_alloc(&arena, sizeof(Text_Span));
+				new_span->type = curr_fmt;
+				
+				if (curr_span) {
+					curr_span->next = new_span;
+				}
+				curr_span = new_span;
+			} break;
+			default: add_char: {
+				if (is_newline) {
 					Node *p = arena_alloc(&arena, sizeof(Node));
 					p->type = NODE_PARAGRAPH;
-					p->text.start = ptr;
-					p->text.length++;
+
+					Text_Span *span = arena_alloc(&arena, sizeof(Text_Span));
+					span->type = STRING_REGULAR;
+					p->text = span;
+					curr_span = span;
+					curr_fmt = STRING_REGULAR;
+
 					if (curr_node->type == NODE_PARAGRAPH) {
 						curr_node->next = p;
 					} else {
@@ -201,8 +266,14 @@ int main(int argc, char *argv[])
 					curr_node = p;
 					is_newline = false;
 				}
-				break;
-			}
+				
+				if (curr_span) {
+					if (curr_span->view.start == NULL) {
+						curr_span->view.start = ptr;
+					}
+					curr_span->view.length++;
+				}
+			} break;
 		}
 		ptr++;
 	}
@@ -217,10 +288,8 @@ int main(int argc, char *argv[])
 	buf_ctx_append(&ctx, "BT\n");
 	render_node(root->child, &ctx, 750);
 	buf_ctx_append(&ctx, "ET");
-	//
-	// DEBUG
-	int kids[] = {0};
-	kids[0] = 3;
+
+	int kids[1] = {3};
 
 	PDF_Context pctx = {0};
 	if (!pdf_init(&pctx, DEFAULT_OUTPUT_PATH)) {
@@ -240,22 +309,35 @@ int main(int argc, char *argv[])
 	PDF_Object page = {
 		.id = 3,
 		.type = PDF_PAGE,
-		.page = { 5, 612, 792, tree.id, 4 },
-	};
-	PDF_Object font = {
-		.id = 4,
-		.type = PDF_FONT,
+		.page = { 4, 612, 792, tree.id, 5 },
 	};
 	PDF_Object contents = {
-		.id = 5,
+		.id = 4,
 		.type = PDF_CONTENT,
 		.content = { ctx.offset, stream_buf }
+	};
+	PDF_Object font_reg = {
+		.id = 5,
+		.type = PDF_FONT,
+		.font = 1
+	};
+	PDF_Object font_bold = {
+		.id = 6,
+		.type = PDF_FONT,
+		.font = 2
+	};
+	PDF_Object font_italic = {
+		.id = 7,
+		.type = PDF_FONT,
+		.font = 3
 	};
 	 
 	pdf_obj_write(&pctx, &cat);
 	pdf_obj_write(&pctx, &tree);
 	pdf_obj_write(&pctx, &page);
-	pdf_obj_write(&pctx, &font);
+	pdf_obj_write(&pctx, &font_reg);
+	pdf_obj_write(&pctx, &font_bold);
+	pdf_obj_write(&pctx, &font_italic);
 	pdf_obj_write(&pctx, &contents);
 
 	pdf_xref_table_write(&pctx);
@@ -272,23 +354,68 @@ void render_node(Node *node, Buf_Context *ctx, int y) {
 	if (node == NULL) return;
 	while (node)
 	{
+		buf_ctx_append(ctx, "1 0 0 1 72 %d Tm\n", y);
 		switch (node->type) {
 			case NODE_HEADING: {
-				buf_ctx_append(ctx, "/F1 24 Tf 1 0 0 1 72 %d Tm (%.*s) Tj\n", y, node->text.length, node->text.start);
-				// TODO: define
-				y -= 30;
+				Text_Span *curr = node->text;
+				while (curr) {
+					switch (curr->type) {
+						case STRING_REGULAR:
+						buf_ctx_append(ctx, "/F1 24 Tf\n");
+						break;
+						case STRING_BOLD:
+						buf_ctx_append(ctx, "/F2 24 Tf\n");
+						break;
+						case STRING_ITALIC:
+						buf_ctx_append(ctx, "/F3 24 Tf\n");
+						break;
+					}
+					buf_ctx_append(ctx, "(%.*s) Tj\n", curr->view.length, curr->view.start);
+					curr = curr->next;
+				}
+				y -= HEADER_OFFSET;
 				break;
 			}
 			case NODE_LIST: {
-				buf_ctx_append(ctx, "/F1 12 Tf 1 0 0 1 72 %d Tm (- %.*s) Tj\n", y, node->text.length, node->text.start);
-				// TODO: define
-				y -= 15;
+				Text_Span *curr = node->text;
+				buf_ctx_append(ctx, "/F1 12 Tf\n");
+				buf_ctx_append(ctx, "(- ) Tj\n");
+				while (curr) {
+					switch (curr->type) {
+						case STRING_REGULAR:
+						buf_ctx_append(ctx, "/F1 12 Tf\n");
+						break;
+						case STRING_BOLD:
+						buf_ctx_append(ctx, "/F2 12 Tf\n");
+						break;
+						case STRING_ITALIC:
+						buf_ctx_append(ctx, "/F3 12 Tf\n");
+						break;
+					}
+					buf_ctx_append(ctx, "(%.*s) Tj\n", curr->view.length, curr->view.start);
+					curr = curr->next;
+				}
+				y -= BODY_OFFSET;
 				break;
 			}
 			case NODE_PARAGRAPH: {
-				buf_ctx_append(ctx, "/F1 12 Tf 1 0 0 1 72 %d Tm (%.*s) Tj\n", y, node->text.length, node->text.start);
-				// TODO: define
-				y -= 15;
+				Text_Span *curr = node->text;
+				while (curr) {
+					switch (curr->type) {
+						case STRING_REGULAR:
+						buf_ctx_append(ctx, "/F1 12 Tf\n");
+						break;
+						case STRING_BOLD:
+						buf_ctx_append(ctx, "/F2 12 Tf\n");
+						break;
+						case STRING_ITALIC:
+						buf_ctx_append(ctx, "/F3 12 Tf\n");
+						break;
+					}
+					buf_ctx_append(ctx, "(%.*s) Tj\n", curr->view.length, curr->view.start);
+					curr = curr->next;
+				}
+				y -= BODY_OFFSET;
 				break;
 			}
 			default:

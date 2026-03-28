@@ -1,6 +1,6 @@
 # note-compiler
 
-A simple Markdown compiler to a PDF spec subset
+A simple Markdown compiler to a **PDF spec subset**
 
 - **Refactor the renderer**
 - Word-wrapping
@@ -10,3 +10,5 @@ A simple Markdown compiler to a PDF spec subset
 - CMake
 - compile_commands.json
 - SV struct helpers
+- .h files -> compilation units, linking
+- _const chars_

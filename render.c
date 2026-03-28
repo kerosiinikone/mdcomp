@@ -3,6 +3,7 @@
 #include <stdio.h>
 
 #define FORMAT_VERSION "%PDF-2.0\n%\xE2\xE3\xCF\xD3\n\n"
+#define MAX_OBJ_COUNT 256
 
 typedef enum {
 	PDF_CATALOG,
@@ -65,10 +66,11 @@ typedef struct {
 		// 	/Type /Font
 		// >>
 		// endobj
-		struct {
-			size_t length;
-			char *stream;
-		} content;
+		enum {
+			FONT_REGULAR = 1,
+			FONT_BOLD,
+			FONT_ITALIC
+		} font;
 		// page content objects (as pointed to in the pages objects)
 		// 4 0 obj
 		// <<
@@ -78,12 +80,16 @@ typedef struct {
 		// [contents produced!]
 		// endstream
 		// endobj
+		struct {
+			size_t length;
+			const char *stream;
+		} content;
 	};
 } PDF_Object;
 
 typedef struct {
 	FILE *f;
-	long offsets[256];
+	long offsets[MAX_OBJ_COUNT];
 	size_t obj_count;
 } PDF_Context;
 
@@ -98,7 +104,6 @@ bool pdf_init(PDF_Context *ctx, const char *fp) {
 	fprintf(f, "%s", FORMAT_VERSION);
 	return true;
 }
-
 
 void pdf_obj_start(PDF_Context *pctx, PDF_Object *obj) {
 	pctx->offsets[obj->id] = ftell(pctx->f);
@@ -115,35 +120,39 @@ void pdf_obj_write(PDF_Context *pctx, PDF_Object *obj) {
 	switch (obj->type) {
 		case PDF_CATALOG: {
 			fprintf(pctx->f, "<< /Pages %d 0 R /Type /Catalog >>\n", obj->catalog.pages_id);
-			break;
-		}
+		} break;
 		case PDF_TREE: {
 			// TODO: dynamic table, count
 			fprintf(pctx->f, "<< /Count %d /Kids [%d 0 R] /Type /Pages >>\n", obj->tree.count, obj->tree.kids[0]);
-			break;
-		}
+		} break;
 		case PDF_PAGE: {
 			fprintf(pctx->f, "<<\n");
 			fprintf(pctx->f, "	/Parent %d 0 R\n", obj->page.parent_id);
 			fprintf(pctx->f, "	/Contents %d 0 R\n", obj->page.contents_id);
 			fprintf(pctx->f, "	/Mediabox [0 0 %d %d]\n", obj->page.mb_x, obj->page.mb_y);
-			fprintf(pctx->f, "	/Resources << /Font << /F1 %d 0 R >> >>\n", obj->page.font_id);
+			fprintf(pctx->f, "	/Resources << /Font << /F1 %d 0 R /F2 %d 0 R /F3 %d 0 R >> >>\n", obj->page.font_id, obj->page.font_id + 1, obj->page.font_id + 2);
 			fprintf(pctx->f, ">>\n");
 			fprintf(pctx->f, "/Type /Page\n");
-			break;
-		}
+		} break;
 		case PDF_FONT: {
-			// TODO: configure
-			fprintf(pctx->f, "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\n");
-			break;
-		}
+			switch (obj->font) {
+				case FONT_REGULAR: {
+					fprintf(pctx->f, "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\n");
+				} break;
+				case FONT_BOLD: {
+					fprintf(pctx->f, "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>\n");
+				} break;
+				case FONT_ITALIC: {
+					fprintf(pctx->f, "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Oblique >>\n");
+				} break;
+			}
+		} break;
 		case PDF_CONTENT: {
 			fprintf(pctx->f, "<< /Length %zu >>\n", obj->content.length);
 			fprintf(pctx->f, "stream\n");
 			fprintf(pctx->f, "%s\n", obj->content.stream);
 			fprintf(pctx->f, "endstream\n");
-			break;
-		}
+		} break;
 		default:
 		break;
 	}
