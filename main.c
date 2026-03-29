@@ -20,6 +20,7 @@
 
 #define HEADER_OFFSET 30
 #define BODY_OFFSET 15
+#define DRAW_AREA 612-72*2
 
 typedef enum {
 	NODE_ROOT,
@@ -361,9 +362,10 @@ void render_node(Node *node, Buf_Context *ctx, int y) {
 				Text_Span *curr = node->text;
 
 				int cursor = 72;
-				int last_space_offset = 0;
+				long last_space_offset = 0;
 
-				while (curr) {
+				while (curr) 
+				{
 					switch (curr->type) {
 						case STRING_REGULAR:
 						buf_ctx_append(ctx, "/F1 24 Tf\n");
@@ -381,8 +383,13 @@ void render_node(Node *node, Buf_Context *ctx, int y) {
 					char *segment_start = span_ptr;
 					int char_index = 0;
 					
-					while (span_ptr < end) {
-						if (cursor > 612 - 2*72) {
+					while (span_ptr < end) 
+					{
+						if (isspace(*span_ptr)) {
+							// absolute space offset from last
+							last_space_offset = span_ptr - segment_start;
+						}
+						if (cursor > DRAW_AREA) {
 							int emit_length = last_space_offset > 0 ? last_space_offset : char_index;
 							buf_ctx_append(ctx, "(%.*s) Tj\n", emit_length, segment_start);
 							y -= HEADER_OFFSET;
@@ -399,14 +406,14 @@ void render_node(Node *node, Buf_Context *ctx, int y) {
 								buf_ctx_append(ctx, "/F3 24 Tf\n");
 								break;
 							}
-							segment_start = span_ptr - char_index + emit_length;
+							// skip the emitted -> curr pos - iterations (start) + emitted
+							segment_start += emit_length;
 							cursor = 72;
 							char_index = 0;
 							last_space_offset = 0;
+							// new line
 						}
-						if (isspace(*span_ptr)) {
-							last_space_offset = char_index;
-						}
+						// glyph width, font size
 						cursor += 12;
 						span_ptr++;
 						char_index++;

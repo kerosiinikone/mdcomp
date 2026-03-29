@@ -1,4 +1,4 @@
-# note-compiler note-compiler note-compiler note-compiler note-compiler note-compiler note-compiler note-compiler note-compiler note-compiler note-compiler
+# note-compiler for compiling my own Markdown notes and assignments (without Obsidian)
 
 A simple Markdown compiler to a **PDF spec subset**
 

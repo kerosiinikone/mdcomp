@@ -32,32 +32,26 @@ endobj
 endobj
 
 4 0 obj
-<< /Length 1555 >>
+<< /Length 1443 >>
 stream
 BT
 1 0 0 1 72 750 Tm
 /F1 24 Tf
-(note-compiler note-compiler) Tj
+(note-compiler for compiling my own) Tj
 1 0 0 1 72 720 Tm
 /F1 24 Tf
-( note-compiler note-c) Tj
+( Markdown notes and assignments) Tj
 1 0 0 1 72 690 Tm
 /F1 24 Tf
-( note-compiler note-compiler ) Tj
+( (without Obsidian)) Tj
 1 0 0 1 72 660 Tm
-/F1 24 Tf
-( note-compiler note-com) Tj
-1 0 0 1 72 630 Tm
-/F1 24 Tf
-( note-compiler note-compiler) Tj
-1 0 0 1 72 600 Tm
 /F1 12 Tf
 (A simple Markdown compiler to a ) Tj
 /F2 12 Tf
 (PDF spec subset) Tj
 /F1 12 Tf
 () Tj
-1 0 0 1 72 585 Tm
+1 0 0 1 72 645 Tm
 /F1 12 Tf
 (- ) Tj
 /F1 12 Tf
@@ -66,12 +60,12 @@ BT
 (Refactor the renderer) Tj
 /F1 12 Tf
 () Tj
-1 0 0 1 72 570 Tm
+1 0 0 1 72 630 Tm
 /F1 12 Tf
 (- ) Tj
 /F1 12 Tf
 (Word-wrapping) Tj
-1 0 0 1 72 555 Tm
+1 0 0 1 72 615 Tm
 /F1 12 Tf
 (- ) Tj
 /F1 12 Tf
@@ -80,7 +74,7 @@ BT
 (non-ASCII) Tj
 /F1 12 Tf
 () Tj
-1 0 0 1 72 540 Tm
+1 0 0 1 72 600 Tm
 /F1 12 Tf
 (- ) Tj
 /F1 12 Tf
@@ -89,17 +83,17 @@ BT
 (Multipage) Tj
 /F1 12 Tf
 () Tj
-1 0 0 1 72 525 Tm
+1 0 0 1 72 585 Tm
 /F1 12 Tf
 (- ) Tj
 /F1 12 Tf
 (Bolded, italic text) Tj
-1 0 0 1 72 510 Tm
+1 0 0 1 72 570 Tm
 /F1 12 Tf
 (- ) Tj
 /F1 12 Tf
 (CMake) Tj
-1 0 0 1 72 495 Tm
+1 0 0 1 72 555 Tm
 /F1 12 Tf
 (- ) Tj
 /F1 12 Tf
@@ -110,17 +104,17 @@ BT
 () Tj
 /F3 12 Tf
 (commands.json) Tj
-1 0 0 1 72 480 Tm
+1 0 0 1 72 540 Tm
 /F1 12 Tf
 (- ) Tj
 /F1 12 Tf
 (SV struct helpers) Tj
-1 0 0 1 72 465 Tm
+1 0 0 1 72 525 Tm
 /F1 12 Tf
 (- ) Tj
 /F1 12 Tf
 (.h files -> compilation units, linking) Tj
-1 0 0 1 72 450 Tm
+1 0 0 1 72 510 Tm
 /F1 12 Tf
 (- ) Tj
 /F1 12 Tf
@@ -129,7 +123,7 @@ BT
 (const chars) Tj
 /F1 12 Tf
 () Tj
-1 0 0 1 72 435 Tm
+1 0 0 1 72 495 Tm
 /F1 12 Tf
 (ssdfsdfsdfsdfdsdfsdfsdfsdfdsdfsdfsdfsdfdsdfsdfsdfsdfdsdfsdfsdfsdfdsdfsdfsdfsdfdsdfsdfsdfsdfdsdfsdfsdfsdfdsdfsdfsdfsdfdsdfsdfsdfsdfdsdfsdfsdfsdfdsdfsdfsdfsdfdsdfsdfsdfsdfdsdfsdfsdfsdfdsdfsdfsdfsdfdsdfsdfsdfsdfdsdfsdfsdfsdfdsdfsdfsdfsdfddfsdfsdfsdfd) Tj
 ET
@@ -149,5 +143,5 @@ xref
 trailer
 << /Size 8 /Root 1 0 R >>
 startxref
-2278
+2166
 %%EOF
