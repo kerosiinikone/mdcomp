@@ -1,12 +1,15 @@
-# note-compiler ää
+# note-compiler (set tabcount on span and repeat it on cursor reset?)
 
-A simple Markdown compiler to a **PDF spec subset**
+### A simple Markdown compiler, **PDF spec subset**
 
-- **Refactor the renderer**
-- Word-wrapping
-- ~**non-ASCII**~
+- _Refactor the renderer_
+- ~Word-wrapping~
+- Italic underscore, don't skip
+- Tab / indent overflowing (set tabcount on span and repeat it on cursor reset?)
+    - ~**non-ASCII**~
 - **Multipage**
 - ~Bolded, italic text~
 - CMake
-- compile___commands.json
+- compile_commands.json
 - .h files -> compilation units, linking
+- *italic*

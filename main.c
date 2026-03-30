@@ -18,6 +18,8 @@
 
 #define ALIGN_8(size) ((size) + 7) & ~7
 
+#define ARENA_SIZE 1024 * 1024
+
 #define HEADER_OFFSET 30
 #define BODY_OFFSET 15
 #define DRAW_AREA 612-72*2
@@ -32,7 +34,11 @@ size_t utf8_char_length(unsigned char leading_byte) {
 
 typedef enum {
 	NODE_ROOT,
+
 	NODE_HEADING,
+	NODE_MEDIUM_HEADING,
+	NODE_SMALL_HEADING,
+
 	NODE_PARAGRAPH,
 	NODE_LIST,
 } Node_Type;
@@ -56,9 +62,7 @@ typedef struct Text_Span {
 
 typedef struct Node {
 	Node_Type type;
-	
 	Text_Span *text;
-
 	struct Node *child;
 	struct Node *next;
 } Node;
@@ -120,6 +124,11 @@ void buf_ctx_append_trans(Buf_Context *ctx, const char *str, size_t length) {
 	
 	while (ptr < end && ctx->offset < ctx->capacity - 1) {
 		char ascii_char = utf8_to_ascii(&ptr);
+		switch (ascii_char) {
+			case '(': case ')': case '\\': {
+				ctx->data[ctx->offset++] = '\\';
+			}
+		}
 		ctx->data[ctx->offset++] = ascii_char;
 	}
 }
@@ -138,11 +147,13 @@ Arena arena_create(size_t cap) {
 	};
 }
 
-void* arena_alloc(Arena *arena, size_t size) {
+void *arena_alloc(Arena *arena, size_t size) {
 	size_t align = ALIGN_8(size);
+
 	if (arena->offset + align > arena->cap) {
 		return NULL;
 	};
+
 	void *ptr = arena->data + arena->offset;
 	arena->offset += align;
 	memset(ptr, 0, align);
@@ -153,7 +164,7 @@ void arena_destroy(Arena *arena) {
 	free(arena->data);
 }
 
-void render_node(Node *node, Buf_Context *ctx, int y);
+void temp_render_node(Node *node, Buf_Context *ctx, int y);
 
 int main(int argc, char *argv[]) 
 {
@@ -174,7 +185,7 @@ int main(int argc, char *argv[])
 		close(fd);
 		return -1;
 	}
-	Arena arena = arena_create(1024*1024);
+	Arena arena = arena_create(ARENA_SIZE);
 
 	// TODO: check for NULL
 	Node *root = arena_alloc(&arena, sizeof(Node));
@@ -191,26 +202,29 @@ int main(int argc, char *argv[])
 
 	while (ptr < end) 
 	{
-		// get leading byte -> len of char
 		size_t n = utf8_char_length((unsigned char)*ptr);
-		// strcmp
-		// parse and adv the pointer the len of the char
+
 		switch (*ptr)
 		{
 			case '\n': {
 				is_newline = true;
 			} break;
-			// TODO: smaller headings
 			case '#': {
-				if (ptr + n >= end) {
-					break;
-            			}
-				if (!is_newline || !isspace((unsigned char)ptr[n])) {
+				if (ptr + 1 >= end) break;
+				if (!is_newline) goto add_char;
+
+				int hash_count = 1;
+				while (hash_count < 3 && ptr + hash_count < end && ptr[hash_count] == '#') {
+					hash_count++;
+				}
+
+				if (ptr + hash_count >= end || !isspace((unsigned char)ptr[hash_count])) {
 					goto add_char;
 				}
 
+				Node_Type heading_type = hash_count;
 				Node *heading = arena_alloc(&arena, sizeof(Node));
-				heading->type = NODE_HEADING;
+				heading->type = heading_type;
 
 				Text_Span *span = arena_alloc(&arena, sizeof(Text_Span));
 				span->type = STRING_REGULAR;
@@ -218,10 +232,31 @@ int main(int argc, char *argv[])
 				curr_span = span;
 				curr_fmt = STRING_REGULAR;
 
-				if (curr_node->type == NODE_ROOT) {
+				bool should_be_child = false;
+				bool should_be_sibling = false;
+
+				switch (curr_node->type) {
+					case NODE_ROOT:
+						should_be_child = true;
+						break;
+					case NODE_HEADING:
+						should_be_child = (heading_type == NODE_MEDIUM_HEADING || heading_type == NODE_SMALL_HEADING);
+						should_be_sibling = (heading_type == NODE_HEADING);
+						break;
+					case NODE_MEDIUM_HEADING:
+						should_be_child = (heading_type == NODE_SMALL_HEADING);
+						should_be_sibling = (heading_type == NODE_HEADING || heading_type == NODE_MEDIUM_HEADING);
+						break;
+					case NODE_SMALL_HEADING:
+						should_be_sibling = true;
+						break;
+					default:
+						break;
+				}
+				if (should_be_child) {
 					curr_node->child = heading;
 					last_root_child = heading;
-				} else if (curr_node->type == NODE_HEADING) {
+				} else if (should_be_sibling) {
 					curr_node->next = heading;
 					last_root_child = heading;
 				} else {
@@ -233,15 +268,15 @@ int main(int argc, char *argv[])
 						last_root_child = heading;
 					}
 				}
-				ptr += n;
+				ptr += hash_count;
 				curr_node = heading;
 				is_newline = false;
 			} break;
 			case '-': {
-				if (ptr + n >= end) {
+				if (ptr + 1 >= end) {
 					break;
             			}
-				if (!is_newline || !isspace((unsigned char)ptr[n])) {
+				if (!is_newline || !isspace((unsigned char)ptr[1])) {
 					goto add_char;
 				}
 
@@ -259,15 +294,18 @@ int main(int argc, char *argv[])
 				} else {
 					curr_node->next = list;
 				}
-				ptr += n;
+				ptr++;
 				curr_node = list;
 				is_newline = false;
 			} break;
 			case '*': {
-				if (ptr + n >= end || ptr[n] != '*') {
+				if (ptr + 1 >= end) {
 					goto add_char;
 				}
-				
+				if (ptr[1] != '*') {
+					goto italic;
+				}
+
 				if (curr_fmt == STRING_BOLD) {
 					curr_fmt = STRING_REGULAR;
 				} else {
@@ -282,17 +320,30 @@ int main(int argc, char *argv[])
 				}
 				curr_span = new_span;
 				
-				ptr += n;
+				ptr++;
 			} break;
-			case '_': {
+			case '_': italic: {
+				// always allocates -> can be opt
+				Text_Span *new_span = arena_alloc(&arena, sizeof(Text_Span));
+
 				if (curr_fmt == STRING_ITALIC) {
 					curr_fmt = STRING_REGULAR;
+					curr_span->type = STRING_ITALIC;
 				} else {
+					// refactor
+					char *line_ptr = ptr + 1;
+					while (line_ptr < end && *line_ptr != '\n' && *line_ptr != '_' && *line_ptr != '*') {
+						line_ptr++;
+					}
+					if (line_ptr >= end) break;
+					if (*line_ptr == '\n') {
+						// will not be closed
+						new_span->view.start = ptr;
+						new_span->view.length++;
+					}
 					curr_fmt = STRING_ITALIC;
+					new_span->type = STRING_REGULAR;
 				}
-				
-				Text_Span *new_span = arena_alloc(&arena, sizeof(Text_Span));
-				new_span->type = curr_fmt;
 				
 				if (curr_span) {
 					curr_span->next = new_span;
@@ -339,7 +390,7 @@ int main(int argc, char *argv[])
 
 	buf_ctx_append(&ctx, "BT\n");
 	// page height?
-	render_node(root->child, &ctx, 750);
+	temp_render_node(root->child, &ctx, 750);
 	buf_ctx_append(&ctx, "ET");
 
 	int kids[1] = {3};
@@ -403,14 +454,13 @@ int main(int argc, char *argv[])
 	return 0;
 }
 
-// TODO: preprocess for pages and escape \()
-void render_node(Node *node, Buf_Context *ctx, int y) {
+void temp_render_node(Node *node, Buf_Context *ctx, int y) {
 	if (node == NULL) return;
 	while (node)
 	{
 		buf_ctx_append(ctx, "1 0 0 1 72 %d Tm\n", y);
 		switch (node->type) {
-			case NODE_HEADING: {
+			case NODE_HEADING: case NODE_MEDIUM_HEADING: case NODE_SMALL_HEADING: {
 				Text_Span *curr = node->text;
 
 				int cursor = 72;
@@ -445,9 +495,11 @@ void render_node(Node *node, Buf_Context *ctx, int y) {
 						}
 						if (cursor > DRAW_AREA) {
 							int emit_length = last_space_offset > 0 ? last_space_offset : char_index;
+
 							buf_ctx_append(ctx, "(");
 							buf_ctx_append_trans(ctx, segment_start, emit_length);
 							buf_ctx_append(ctx, ") Tj\n");
+
 							y -= HEADER_OFFSET;
 							buf_ctx_append(ctx, "1 0 0 1 72 %d Tm\n", y);
 							
@@ -478,6 +530,7 @@ void render_node(Node *node, Buf_Context *ctx, int y) {
 						buf_ctx_append_trans(ctx, segment_start, rest);
 						buf_ctx_append(ctx, ") Tj\n");
 					}
+					last_space_offset = 0;
 					curr = curr->next;
 				}
 				y -= HEADER_OFFSET;
@@ -533,7 +586,7 @@ void render_node(Node *node, Buf_Context *ctx, int y) {
 				break;
 		}
         	if (node->child)
-        		render_node(node->child, ctx, y);
+        		temp_render_node(node->child, ctx, y);
         	node = node->next;
 	}
 }
