@@ -22,6 +22,14 @@
 #define BODY_OFFSET 15
 #define DRAW_AREA 612-72*2
 
+size_t utf8_char_length(unsigned char leading_byte) {
+	if ((leading_byte & 0x80) == 0x00) return 1; 
+	if ((leading_byte & 0xE0) == 0xC0) return 2;
+	if ((leading_byte & 0xF0) == 0xE0) return 3;
+	if ((leading_byte & 0xF8) == 0xF0) return 4;
+	return -1;
+}
+
 typedef enum {
 	NODE_ROOT,
 	NODE_HEADING,
@@ -37,7 +45,7 @@ typedef enum {
 
 typedef struct {
 	const char *start;
-	int length;
+	size_t length;
 } String_View;
 
 typedef struct Text_Span {
@@ -75,6 +83,44 @@ void buf_ctx_append(Buf_Context *ctx, char *fmt, ...) {
         	if (ctx->offset >= ctx->capacity) {
         		ctx->offset = ctx->capacity - 1; 
         	}
+	}
+}
+
+char utf8_to_ascii(const char **ptr) {
+	size_t n = utf8_char_length((unsigned char)**ptr);
+	unsigned char first_byte = (unsigned char)(**ptr);
+
+	if (n == 1) {
+		(*ptr)++;
+		return first_byte;
+	}
+	if (n == 2) {
+		unsigned char second_byte = (unsigned char)(*ptr)[1];
+		uint16_t codepoint = ((first_byte & 0x1F) << 6) | (second_byte & 0x3F);
+		switch (codepoint) {
+			case 0xE4: case 0xE5:
+				*ptr += 2; return 'a';
+			case 0xF6:
+				*ptr += 2; return 'o';
+			case 0xC4: case 0xC5:
+				*ptr += 2; return 'A';
+			case 0xD6:
+				*ptr += 2; return 'O';
+			default:
+				*ptr += 2; return '?';
+		}
+	}
+	*ptr += n;
+	return '?';
+}
+
+void buf_ctx_append_trans(Buf_Context *ctx, const char *str, size_t length) {
+	const char *ptr = str;
+	const char *end = str + length;
+	
+	while (ptr < end && ctx->offset < ctx->capacity - 1) {
+		char ascii_char = utf8_to_ascii(&ptr);
+		ctx->data[ctx->offset++] = ascii_char;
 	}
 }
 
@@ -145,6 +191,10 @@ int main(int argc, char *argv[])
 
 	while (ptr < end) 
 	{
+		// get leading byte -> len of char
+		size_t n = utf8_char_length((unsigned char)*ptr);
+		// strcmp
+		// parse and adv the pointer the len of the char
 		switch (*ptr)
 		{
 			case '\n': {
@@ -152,10 +202,10 @@ int main(int argc, char *argv[])
 			} break;
 			// TODO: smaller headings
 			case '#': {
-				if (ptr + 1 >= end) {
+				if (ptr + n >= end) {
 					break;
             			}
-				if (!is_newline || !isspace((unsigned char)ptr[1])) {
+				if (!is_newline || !isspace((unsigned char)ptr[n])) {
 					goto add_char;
 				}
 
@@ -183,15 +233,15 @@ int main(int argc, char *argv[])
 						last_root_child = heading;
 					}
 				}
-				ptr++;
+				ptr += n;
 				curr_node = heading;
 				is_newline = false;
 			} break;
 			case '-': {
-				if (ptr + 1 >= end) {
+				if (ptr + n >= end) {
 					break;
             			}
-				if (!is_newline || !isspace((unsigned char)ptr[1])) {
+				if (!is_newline || !isspace((unsigned char)ptr[n])) {
 					goto add_char;
 				}
 
@@ -209,12 +259,12 @@ int main(int argc, char *argv[])
 				} else {
 					curr_node->next = list;
 				}
-				ptr++;
+				ptr += n;
 				curr_node = list;
 				is_newline = false;
 			} break;
 			case '*': {
-				if (ptr + 1 >= end || ptr[1] != '*') {
+				if (ptr + n >= end || ptr[n] != '*') {
 					goto add_char;
 				}
 				
@@ -232,7 +282,7 @@ int main(int argc, char *argv[])
 				}
 				curr_span = new_span;
 				
-				ptr++;
+				ptr += n;
 			} break;
 			case '_': {
 				if (curr_fmt == STRING_ITALIC) {
@@ -273,11 +323,11 @@ int main(int argc, char *argv[])
 					if (curr_span->view.start == NULL) {
 						curr_span->view.start = ptr;
 					}
-					curr_span->view.length++;
+					curr_span->view.length += n;
 				}
 			} break;
 		}
-		ptr++;
+		ptr += n;
 	}
 
 	char stream_buf[10*1024] = {0};
@@ -288,6 +338,7 @@ int main(int argc, char *argv[])
 	};
 
 	buf_ctx_append(&ctx, "BT\n");
+	// page height?
 	render_node(root->child, &ctx, 750);
 	buf_ctx_append(&ctx, "ET");
 
@@ -352,6 +403,7 @@ int main(int argc, char *argv[])
 	return 0;
 }
 
+// TODO: preprocess for pages and escape \()
 void render_node(Node *node, Buf_Context *ctx, int y) {
 	if (node == NULL) return;
 	while (node)
@@ -362,7 +414,7 @@ void render_node(Node *node, Buf_Context *ctx, int y) {
 				Text_Span *curr = node->text;
 
 				int cursor = 72;
-				long last_space_offset = 0;
+				size_t last_space_offset = 0;
 
 				while (curr) 
 				{
@@ -382,16 +434,20 @@ void render_node(Node *node, Buf_Context *ctx, int y) {
 					char *end = span_ptr + curr->view.length;
 					char *segment_start = span_ptr;
 					int char_index = 0;
-					
+
 					while (span_ptr < end) 
 					{
+						size_t n = utf8_char_length((unsigned char)*span_ptr);
+
 						if (isspace(*span_ptr)) {
 							// absolute space offset from last
 							last_space_offset = span_ptr - segment_start;
 						}
 						if (cursor > DRAW_AREA) {
 							int emit_length = last_space_offset > 0 ? last_space_offset : char_index;
-							buf_ctx_append(ctx, "(%.*s) Tj\n", emit_length, segment_start);
+							buf_ctx_append(ctx, "(");
+							buf_ctx_append_trans(ctx, segment_start, emit_length);
+							buf_ctx_append(ctx, ") Tj\n");
 							y -= HEADER_OFFSET;
 							buf_ctx_append(ctx, "1 0 0 1 72 %d Tm\n", y);
 							
@@ -406,21 +462,21 @@ void render_node(Node *node, Buf_Context *ctx, int y) {
 								buf_ctx_append(ctx, "/F3 24 Tf\n");
 								break;
 							}
-							// skip the emitted -> curr pos - iterations (start) + emitted
 							segment_start += emit_length;
 							cursor = 72;
 							char_index = 0;
 							last_space_offset = 0;
-							// new line
 						}
 						// glyph width, font size
 						cursor += 12;
-						span_ptr++;
-						char_index++;
+						span_ptr += n;
+						char_index += n;
 					}
 					int rest = span_ptr - segment_start;
 					if (rest > 0) {
-						buf_ctx_append(ctx, "(%.*s) Tj\n", rest, segment_start);
+						buf_ctx_append(ctx, "(");
+						buf_ctx_append_trans(ctx, segment_start, rest);
+						buf_ctx_append(ctx, ") Tj\n");
 					}
 					curr = curr->next;
 				}
@@ -443,7 +499,9 @@ void render_node(Node *node, Buf_Context *ctx, int y) {
 						buf_ctx_append(ctx, "/F3 12 Tf\n");
 						break;
 					}
-					buf_ctx_append(ctx, "(%.*s) Tj\n", curr->view.length, curr->view.start);
+					buf_ctx_append(ctx, "(");
+					buf_ctx_append_trans(ctx, curr->view.start, curr->view.length);
+					buf_ctx_append(ctx, ") Tj\n");
 					curr = curr->next;
 				}
 				y -= BODY_OFFSET;
@@ -463,7 +521,9 @@ void render_node(Node *node, Buf_Context *ctx, int y) {
 						buf_ctx_append(ctx, "/F3 12 Tf\n");
 						break;
 					}
-					buf_ctx_append(ctx, "(%.*s) Tj\n", curr->view.length, curr->view.start);
+					buf_ctx_append(ctx, "(");
+					buf_ctx_append_trans(ctx, curr->view.start, curr->view.length);
+					buf_ctx_append(ctx, ") Tj\n");
 					curr = curr->next;
 				}
 				y -= BODY_OFFSET;
