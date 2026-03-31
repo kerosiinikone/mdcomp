@@ -23,6 +23,7 @@
 #define HEADER_OFFSET 30
 #define BODY_OFFSET 15
 #define DRAW_AREA 612-72*2
+#define PAGE_HEIGHT 750
 
 size_t utf8_char_length(unsigned char leading_byte) {
 	if ((leading_byte & 0x80) == 0x00) return 1; 
@@ -30,6 +31,37 @@ size_t utf8_char_length(unsigned char leading_byte) {
 	if ((leading_byte & 0xF0) == 0xE0) return 3;
 	if ((leading_byte & 0xF8) == 0xF0) return 4;
 	return -1;
+}
+
+typedef struct {
+	uint8_t *data;
+	size_t cap;
+	size_t offset;
+} Arena;
+
+Arena arena_create(size_t cap) {
+	return (Arena){
+		.data = malloc(cap),
+		.cap = cap,
+		.offset = 0
+	};
+}
+
+void *arena_alloc(Arena *arena, size_t size) {
+	size_t align = ALIGN_8(size);
+
+	if (arena->offset + align > arena->cap) {
+		return NULL;
+	};
+
+	void *ptr = arena->data + arena->offset;
+	arena->offset += align;
+	memset(ptr, 0, align);
+	return ptr;
+}
+
+void arena_destroy(Arena *arena) {
+	free(arena->data);
 }
 
 typedef enum {
@@ -50,6 +82,35 @@ typedef enum {
 } String_Type;
 
 typedef struct {
+    char *data;
+    size_t capacity;
+    size_t offset;
+} Buf_Context;
+
+typedef struct {
+	Buf_Context **data;
+	size_t capacity;
+	size_t length;
+
+	int global_cursor;
+} Page_Context;
+
+Page_Context page_ctx_create(Arena *arena, size_t capacity) {
+	return (Page_Context){
+		.capacity = capacity,
+		.length = 0,
+		.global_cursor = PAGE_HEIGHT,
+		.data = (Buf_Context **)arena_alloc(arena, capacity),
+	};
+}
+
+// TODO: realloc / return false if fails?
+void page_ctx_append(Page_Context *pca, Buf_Context *buf_ptr) {
+	if (pca->length >= pca->capacity - 1) return;
+	pca->data[pca->length++] = buf_ptr;
+}
+
+typedef struct {
 	const char *start;
 	size_t length;
 } String_View;
@@ -66,12 +127,6 @@ typedef struct Node {
 	struct Node *child;
 	struct Node *next;
 } Node;
-
-typedef struct {
-    char *data;
-    size_t capacity;
-    size_t offset;
-} Buf_Context;
 
 // TODO: realloc / return false if fails?
 void buf_ctx_append(Buf_Context *ctx, char *fmt, ...) {
@@ -91,8 +146,8 @@ void buf_ctx_append(Buf_Context *ctx, char *fmt, ...) {
 }
 
 char utf8_to_ascii(const char **ptr) {
-	size_t n = utf8_char_length((unsigned char)**ptr);
 	unsigned char first_byte = (unsigned char)(**ptr);
+	size_t n = utf8_char_length(first_byte);
 
 	if (n == 1) {
 		(*ptr)++;
@@ -133,38 +188,7 @@ void buf_ctx_append_trans(Buf_Context *ctx, const char *str, size_t length) {
 	}
 }
 
-typedef struct {
-	uint8_t *data;
-	size_t cap;
-	size_t offset;
-} Arena;
-
-Arena arena_create(size_t cap) {
-	return (Arena){
-		.data = malloc(cap),
-		.cap = cap,
-		.offset = 0
-	};
-}
-
-void *arena_alloc(Arena *arena, size_t size) {
-	size_t align = ALIGN_8(size);
-
-	if (arena->offset + align > arena->cap) {
-		return NULL;
-	};
-
-	void *ptr = arena->data + arena->offset;
-	arena->offset += align;
-	memset(ptr, 0, align);
-	return ptr;
-}
-
-void arena_destroy(Arena *arena) {
-	free(arena->data);
-}
-
-void temp_render_node(Node *node, Buf_Context *ctx, int y);
+void temp_render_node(Arena *arena, Node *node, Page_Context *ctx);
 
 int main(int argc, char *argv[]) 
 {
@@ -273,9 +297,7 @@ int main(int argc, char *argv[])
 				is_newline = false;
 			} break;
 			case '-': {
-				if (ptr + 1 >= end) {
-					break;
-            			}
+				if (ptr + 1 >= end) break;
 				if (!is_newline || !isspace((unsigned char)ptr[1])) {
 					goto add_char;
 				}
@@ -298,10 +320,10 @@ int main(int argc, char *argv[])
 				curr_node = list;
 				is_newline = false;
 			} break;
+			// TODO: Make into a generic function to take in the format char and function pointer / types
 			case '*': {
-				if (ptr + 1 >= end) {
-					goto add_char;
-				}
+				if (ptr + 1 >= end) goto add_char;
+
 				if (ptr[1] != '*') {
 					goto italic;
 				}
@@ -330,6 +352,7 @@ int main(int argc, char *argv[])
 					curr_fmt = STRING_REGULAR;
 					curr_span->type = STRING_ITALIC;
 				} else {
+					// TODO: if the next char is a space -> treat it as not closed!
 					// refactor
 					char *line_ptr = ptr + 1;
 					while (line_ptr < end && *line_ptr != '\n' && *line_ptr != '_' && *line_ptr != '*') {
@@ -381,21 +404,29 @@ int main(int argc, char *argv[])
 		ptr += n;
 	}
 
-	char stream_buf[10*1024] = {0};
+	// Heap allocated struct?
 	Buf_Context ctx = {
-		.data = stream_buf,
-		.capacity = sizeof(stream_buf),
+		.data = arena_alloc(&arena, 10*1024),
+		.capacity = 10*1024,
 		.offset = 0
 	};
-
 	buf_ctx_append(&ctx, "BT\n");
-	// page height?
-	temp_render_node(root->child, &ctx, 750);
-	buf_ctx_append(&ctx, "ET");
+	
+	// Append first -> the curr pointer is always valid
+	Page_Context p_ctx_arr = page_ctx_create(&arena, 50*1024);
+	page_ctx_append(&p_ctx_arr, &ctx);
 
-	int kids[1] = {3};
+	temp_render_node(&arena, root->child, &p_ctx_arr);
+	
+	// complete the buffer in case it is still "open"
+	Buf_Context *curr = p_ctx_arr.data[p_ctx_arr.length-1];
+	if (curr->offset != curr->capacity) {
+		buf_ctx_append(curr, "ET"); 
+	}
 
 	PDF_Context pctx = {0};
+	int kids[50] = {0};
+
 	if (!pdf_init(&pctx, DEFAULT_OUTPUT_PATH)) {
 		return -1;
 	}
@@ -408,41 +439,59 @@ int main(int argc, char *argv[])
 	PDF_Object tree = {
 		.id = 2,
 		.type = PDF_TREE,
-		.tree = { 1, kids },
-	};
-	PDF_Object page = {
-		.id = 3,
-		.type = PDF_PAGE,
-		.page = { 4, 612, 792, tree.id, 5 },
-	};
-	PDF_Object contents = {
-		.id = 4,
-		.type = PDF_CONTENT,
-		.content = { ctx.offset, stream_buf }
+		.tree = { 0, kids }
 	};
 	PDF_Object font_reg = {
-		.id = 5,
+		.id = 3,
 		.type = PDF_FONT,
 		.font = 1
 	};
 	PDF_Object font_bold = {
-		.id = 6,
+		.id = 4,
 		.type = PDF_FONT,
 		.font = 2
 	};
 	PDF_Object font_italic = {
-		.id = 7,
+		.id = 5,
 		.type = PDF_FONT,
 		.font = 3
 	};
-	 
+
+	for (int page_id = 1; page_id < p_ctx_arr.length * 2; page_id += 2) {
+		// from 1, not 2
+		tree.tree.kids[tree.tree.count++] = font_italic.id + page_id;
+	}
+
 	pdf_obj_write(&pctx, &cat);
 	pdf_obj_write(&pctx, &tree);
-	pdf_obj_write(&pctx, &page);
 	pdf_obj_write(&pctx, &font_reg);
 	pdf_obj_write(&pctx, &font_bold);
 	pdf_obj_write(&pctx, &font_italic);
-	pdf_obj_write(&pctx, &contents);
+
+	int page_id = font_italic.id + 1;
+	int content_id = font_italic.id + 2;
+
+	for (size_t i = 0; i < p_ctx_arr.length; i++) {
+		Buf_Context *curr_buf = p_ctx_arr.data[i];
+		
+		PDF_Object contents = {
+			.id = content_id,
+			.type = PDF_CONTENT,
+			.content = { curr_buf->offset, curr_buf->data }
+		};
+
+		PDF_Object page = {
+			.id = page_id,
+			.type = PDF_PAGE,
+			.page = { content_id, 612, 792, tree.id, 3 },
+		};
+
+		pdf_obj_write(&pctx, &page);
+		pdf_obj_write(&pctx, &contents);
+
+		page_id += 2;
+		content_id += 2;
+	}
 
 	pdf_xref_table_write(&pctx);
 	pdf_trailer_write(&pctx, cat.id);
@@ -454,11 +503,14 @@ int main(int argc, char *argv[])
 	return 0;
 }
 
-void temp_render_node(Node *node, Buf_Context *ctx, int y) {
+// TODO: more spacing BEFORE headings (lower the cursor further)
+void temp_render_node(Arena *arena, Node *node, Page_Context *ctx) {
 	if (node == NULL) return;
 	while (node)
 	{
-		buf_ctx_append(ctx, "1 0 0 1 72 %d Tm\n", y);
+		Buf_Context *curr_ctx = ctx->data[ctx->length-1];
+
+		buf_ctx_append(curr_ctx, "1 0 0 1 72 %d Tm\n", ctx->global_cursor);
 		switch (node->type) {
 			case NODE_HEADING: case NODE_MEDIUM_HEADING: case NODE_SMALL_HEADING: {
 				Text_Span *curr = node->text;
@@ -470,13 +522,13 @@ void temp_render_node(Node *node, Buf_Context *ctx, int y) {
 				{
 					switch (curr->type) {
 						case STRING_REGULAR:
-						buf_ctx_append(ctx, "/F1 24 Tf\n");
+						buf_ctx_append(curr_ctx, "/F1 24 Tf\n");
 						break;
 						case STRING_BOLD:
-						buf_ctx_append(ctx, "/F2 24 Tf\n");
+						buf_ctx_append(curr_ctx, "/F2 24 Tf\n");
 						break;
 						case STRING_ITALIC:
-						buf_ctx_append(ctx, "/F3 24 Tf\n");
+						buf_ctx_append(curr_ctx, "/F3 24 Tf\n");
 						break;
 					}
 
@@ -496,22 +548,35 @@ void temp_render_node(Node *node, Buf_Context *ctx, int y) {
 						if (cursor > DRAW_AREA) {
 							int emit_length = last_space_offset > 0 ? last_space_offset : char_index;
 
-							buf_ctx_append(ctx, "(");
-							buf_ctx_append_trans(ctx, segment_start, emit_length);
-							buf_ctx_append(ctx, ") Tj\n");
+							buf_ctx_append(curr_ctx, "(");
+							buf_ctx_append_trans(curr_ctx, segment_start, emit_length);
+							buf_ctx_append(curr_ctx, ") Tj\n");
 
-							y -= HEADER_OFFSET;
-							buf_ctx_append(ctx, "1 0 0 1 72 %d Tm\n", y);
+							ctx->global_cursor -= HEADER_OFFSET;
+
+							if (ctx->global_cursor < 72) {
+								buf_ctx_append(curr_ctx, "ET");
+
+								Buf_Context *new_ctx = arena_alloc(arena, sizeof(Buf_Context));
+								new_ctx->capacity = 10*1024;
+								new_ctx->data = arena_alloc(arena, new_ctx->capacity);
+								buf_ctx_append(new_ctx, "BT\n");
+
+								page_ctx_append(ctx, new_ctx);
+								curr_ctx = new_ctx;
+								ctx->global_cursor = PAGE_HEIGHT;
+							}
+							buf_ctx_append(curr_ctx, "1 0 0 1 72 %d Tm\n", ctx->global_cursor);
 							
 							switch (curr->type) {
 								case STRING_REGULAR:
-								buf_ctx_append(ctx, "/F1 24 Tf\n");
+								buf_ctx_append(curr_ctx, "/F1 24 Tf\n");
 								break;
 								case STRING_BOLD:
-								buf_ctx_append(ctx, "/F2 24 Tf\n");
+								buf_ctx_append(curr_ctx, "/F2 24 Tf\n");
 								break;
 								case STRING_ITALIC:
-								buf_ctx_append(ctx, "/F3 24 Tf\n");
+								buf_ctx_append(curr_ctx, "/F3 24 Tf\n");
 								break;
 							}
 							segment_start += emit_length;
@@ -526,38 +591,68 @@ void temp_render_node(Node *node, Buf_Context *ctx, int y) {
 					}
 					int rest = span_ptr - segment_start;
 					if (rest > 0) {
-						buf_ctx_append(ctx, "(");
-						buf_ctx_append_trans(ctx, segment_start, rest);
-						buf_ctx_append(ctx, ") Tj\n");
+						buf_ctx_append(curr_ctx, "(");
+						buf_ctx_append_trans(curr_ctx, segment_start, rest);
+						buf_ctx_append(curr_ctx, ") Tj\n");
 					}
 					last_space_offset = 0;
 					curr = curr->next;
 				}
-				y -= HEADER_OFFSET;
+
+				ctx->global_cursor -= HEADER_OFFSET;
+
+				if (ctx->global_cursor < 72) {
+					buf_ctx_append(curr_ctx, "ET");
+
+					Buf_Context *new_ctx = arena_alloc(arena, sizeof(Buf_Context));
+					new_ctx->capacity = 10*1024;
+					new_ctx->data = arena_alloc(arena, new_ctx->capacity);
+					page_ctx_append(ctx, new_ctx);
+
+					buf_ctx_append(new_ctx, "BT\n");
+					curr_ctx = new_ctx;
+
+					ctx->global_cursor = PAGE_HEIGHT;
+				}
 				break;
 			}
 			case NODE_LIST: {
 				Text_Span *curr = node->text;
-				buf_ctx_append(ctx, "/F1 12 Tf\n");
-				buf_ctx_append(ctx, "(- ) Tj\n");
+				buf_ctx_append(curr_ctx, "/F1 12 Tf\n");
+				// TODO: 'write_list' -> more appropriate list indicators?
+				buf_ctx_append(curr_ctx, "(- ) Tj\n");
 				while (curr) {
 					switch (curr->type) {
 						case STRING_REGULAR:
-						buf_ctx_append(ctx, "/F1 12 Tf\n");
+						buf_ctx_append(curr_ctx, "/F1 12 Tf\n");
 						break;
 						case STRING_BOLD:
-						buf_ctx_append(ctx, "/F2 12 Tf\n");
+						buf_ctx_append(curr_ctx, "/F2 12 Tf\n");
 						break;
 						case STRING_ITALIC:
-						buf_ctx_append(ctx, "/F3 12 Tf\n");
+						buf_ctx_append(curr_ctx, "/F3 12 Tf\n");
 						break;
 					}
-					buf_ctx_append(ctx, "(");
-					buf_ctx_append_trans(ctx, curr->view.start, curr->view.length);
-					buf_ctx_append(ctx, ") Tj\n");
+					buf_ctx_append(curr_ctx, "(");
+					buf_ctx_append_trans(curr_ctx, curr->view.start, curr->view.length);
+					buf_ctx_append(curr_ctx, ") Tj\n");
 					curr = curr->next;
 				}
-				y -= BODY_OFFSET;
+
+				ctx->global_cursor -= BODY_OFFSET;
+
+				if (ctx->global_cursor < 72) {
+					buf_ctx_append(curr_ctx, "ET");
+
+					Buf_Context *new_ctx = arena_alloc(arena, sizeof(Buf_Context));
+					new_ctx->capacity = 10*1024;
+					new_ctx->data = arena_alloc(arena, new_ctx->capacity);
+					buf_ctx_append(new_ctx, "BT\n");
+
+					page_ctx_append(ctx, new_ctx);
+					curr_ctx = new_ctx;
+					ctx->global_cursor = PAGE_HEIGHT;
+				}
 				break;
 			}
 			case NODE_PARAGRAPH: {
@@ -565,28 +660,42 @@ void temp_render_node(Node *node, Buf_Context *ctx, int y) {
 				while (curr) {
 					switch (curr->type) {
 						case STRING_REGULAR:
-						buf_ctx_append(ctx, "/F1 12 Tf\n");
+						buf_ctx_append(curr_ctx, "/F1 12 Tf\n");
 						break;
 						case STRING_BOLD:
-						buf_ctx_append(ctx, "/F2 12 Tf\n");
+						buf_ctx_append(curr_ctx, "/F2 12 Tf\n");
 						break;
 						case STRING_ITALIC:
-						buf_ctx_append(ctx, "/F3 12 Tf\n");
+						buf_ctx_append(curr_ctx, "/F3 12 Tf\n");
 						break;
 					}
-					buf_ctx_append(ctx, "(");
-					buf_ctx_append_trans(ctx, curr->view.start, curr->view.length);
-					buf_ctx_append(ctx, ") Tj\n");
+					buf_ctx_append(curr_ctx, "(");
+					buf_ctx_append_trans(curr_ctx, curr->view.start, curr->view.length);
+					buf_ctx_append(curr_ctx, ") Tj\n");
 					curr = curr->next;
 				}
-				y -= BODY_OFFSET;
+
+				ctx->global_cursor -= BODY_OFFSET;
+
+				if (ctx->global_cursor < 72) {
+					buf_ctx_append(curr_ctx, "ET");
+
+					Buf_Context *new_ctx = arena_alloc(arena, sizeof(Buf_Context));
+					new_ctx->capacity = 10*1024;
+					new_ctx->data = arena_alloc(arena, new_ctx->capacity);
+					buf_ctx_append(new_ctx, "BT\n");
+
+					page_ctx_append(ctx, new_ctx);
+					curr_ctx = new_ctx;
+					ctx->global_cursor = PAGE_HEIGHT;
+				}
 				break;
 			}
 			default:
 				break;
 		}
         	if (node->child)
-        		temp_render_node(node->child, ctx, y);
+        		temp_render_node(arena, node->child, ctx);
         	node = node->next;
 	}
 }

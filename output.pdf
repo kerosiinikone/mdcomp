@@ -6,33 +6,36 @@
 endobj
 
 2 0 obj
-<< /Count 1 /Kids [3 0 R] /Type /Pages >>
+<< /Count 2 /Kids [
+6 0 R
+8 0 R
+] /Type /Pages >>
 endobj
 
 3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>
+endobj
+
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Oblique >>
+endobj
+
+6 0 obj
 <<
 	/Parent 2 0 R
-	/Contents 4 0 R
+	/Contents 7 0 R
 	/Mediabox [0 0 612 792]
-	/Resources << /Font << /F1 5 0 R /F2 6 0 R /F3 7 0 R >> >>
+	/Resources << /Font << /F1 3 0 R /F2 4 0 R /F3 5 0 R >> >>
 >>
 /Type /Page
 endobj
 
-5 0 obj
-<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
-endobj
-
-6 0 obj
-<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>
-endobj
-
 7 0 obj
-<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Oblique >>
-endobj
-
-4 0 obj
-<< /Length 1239 >>
+<< /Length 2924 >>
 stream
 BT
 1 0 0 1 72 750 Tm
@@ -50,7 +53,13 @@ BT
 /F2 24 Tf
 ( spec subset) Tj
 /F1 24 Tf
+/F1 24 Tf
 1 0 0 1 72 630 Tm
+/F1 12 Tf
+(Markdown / Obsidian format spec references at some point) Tj
+/F1 12 Tf
+(_) Tj
+1 0 0 1 72 615 Tm
 /F1 12 Tf
 (- ) Tj
 /F1 12 Tf
@@ -59,29 +68,29 @@ BT
 (Refactor the renderer) Tj
 /F1 12 Tf
 () Tj
-1 0 0 1 72 615 Tm
-/F1 12 Tf
-(- ) Tj
-/F1 12 Tf
-(~Word-wrapping~) Tj
 1 0 0 1 72 600 Tm
 /F1 12 Tf
 (- ) Tj
 /F1 12 Tf
-(Italic underscore, don't skip) Tj
+(~Word-wrapping~) Tj
 1 0 0 1 72 585 Tm
 /F1 12 Tf
 (- ) Tj
 /F1 12 Tf
-(Tab / indent overflowing \(set tabcount on span and repeat it on cursor reset?\)) Tj
+(Italic underscore, don't skip) Tj
 1 0 0 1 72 570 Tm
+/F1 12 Tf
+(- ) Tj
+/F1 12 Tf
+(Tab / indent overflowing \(set tabcount on span and repeat it on cursor reset?\)) Tj
+1 0 0 1 72 555 Tm
 /F1 12 Tf
 (    - ~) Tj
 /F2 12 Tf
 (non-ASCII) Tj
 /F1 12 Tf
 (~) Tj
-1 0 0 1 72 555 Tm
+1 0 0 1 72 540 Tm
 /F1 12 Tf
 (- ) Tj
 /F1 12 Tf
@@ -90,29 +99,231 @@ BT
 (Multipage) Tj
 /F1 12 Tf
 () Tj
-1 0 0 1 72 540 Tm
-/F1 12 Tf
-(- ) Tj
-/F1 12 Tf
-(~Bolded, italic text~) Tj
 1 0 0 1 72 525 Tm
 /F1 12 Tf
 (- ) Tj
 /F1 12 Tf
-(CMake) Tj
+(~Bolded, italic text~) Tj
 1 0 0 1 72 510 Tm
+/F1 12 Tf
+(- ) Tj
+/F1 12 Tf
+(CMake) Tj
+1 0 0 1 72 495 Tm
 /F1 12 Tf
 (- ) Tj
 /F1 12 Tf
 (compile) Tj
 /F1 12 Tf
 (_commands.json) Tj
-1 0 0 1 72 495 Tm
+1 0 0 1 72 480 Tm
 /F1 12 Tf
 (- ) Tj
 /F1 12 Tf
 (.h files -> compilation units, linking) Tj
-1 0 0 1 72 480 Tm
+1 0 0 1 72 465 Tm
+/F1 12 Tf
+(- ) Tj
+/F1 12 Tf
+() Tj
+/F3 12 Tf
+(italic) Tj
+/F1 12 Tf
+() Tj
+1 0 0 1 72 450 Tm
+/F1 24 Tf
+(note-compiler \(set tabcount on) Tj
+1 0 0 1 72 420 Tm
+/F1 24 Tf
+( span and repeat it on cursor reset?\)) Tj
+1 0 0 1 72 390 Tm
+/F1 24 Tf
+(A simple Markdown compiler, ) Tj
+/F2 24 Tf
+(PDF) Tj
+1 0 0 1 72 360 Tm
+/F2 24 Tf
+( spec subset) Tj
+/F1 24 Tf
+/F1 24 Tf
+1 0 0 1 72 330 Tm
+/F1 12 Tf
+(Markdown / Obsidian format spec references at some point) Tj
+/F1 12 Tf
+(_) Tj
+1 0 0 1 72 315 Tm
+/F1 12 Tf
+(- ) Tj
+/F1 12 Tf
+() Tj
+/F3 12 Tf
+(Refactor the renderer) Tj
+/F1 12 Tf
+() Tj
+1 0 0 1 72 300 Tm
+/F1 12 Tf
+(- ) Tj
+/F1 12 Tf
+(~Word-wrapping~) Tj
+1 0 0 1 72 285 Tm
+/F1 12 Tf
+(- ) Tj
+/F1 12 Tf
+(Italic underscore, don't skip) Tj
+1 0 0 1 72 270 Tm
+/F1 12 Tf
+(- ) Tj
+/F1 12 Tf
+(Tab / indent overflowing \(set tabcount on span and repeat it on cursor reset?\)) Tj
+1 0 0 1 72 255 Tm
+/F1 12 Tf
+(    - ~) Tj
+/F2 12 Tf
+(non-ASCII) Tj
+/F1 12 Tf
+(~) Tj
+1 0 0 1 72 240 Tm
+/F1 12 Tf
+(- ) Tj
+/F1 12 Tf
+() Tj
+/F2 12 Tf
+(Multipage) Tj
+/F1 12 Tf
+() Tj
+1 0 0 1 72 225 Tm
+/F1 12 Tf
+(- ) Tj
+/F1 12 Tf
+(~Bolded, italic text~) Tj
+1 0 0 1 72 210 Tm
+/F1 12 Tf
+(- ) Tj
+/F1 12 Tf
+(CMake) Tj
+1 0 0 1 72 195 Tm
+/F1 12 Tf
+(- ) Tj
+/F1 12 Tf
+(compile) Tj
+/F1 12 Tf
+(_commands.json) Tj
+1 0 0 1 72 180 Tm
+/F1 12 Tf
+(- ) Tj
+/F1 12 Tf
+(.h files -> compilation units, linking) Tj
+1 0 0 1 72 165 Tm
+/F1 12 Tf
+(- ) Tj
+/F1 12 Tf
+() Tj
+/F3 12 Tf
+(italic) Tj
+/F1 12 Tf
+() Tj
+1 0 0 1 72 150 Tm
+/F1 24 Tf
+(note-compiler \(set tabcount on) Tj
+1 0 0 1 72 120 Tm
+/F1 24 Tf
+( span and repeat it on cursor reset?\)) Tj
+1 0 0 1 72 90 Tm
+/F1 24 Tf
+(A simple Markdown compiler, ) Tj
+/F2 24 Tf
+(PDF) Tj
+ET
+endstream
+endobj
+
+8 0 obj
+<<
+	/Parent 2 0 R
+	/Contents 9 0 R
+	/Mediabox [0 0 612 792]
+	/Resources << /Font << /F1 3 0 R /F2 4 0 R /F3 5 0 R >> >>
+>>
+/Type /Page
+endobj
+
+9 0 obj
+<< /Length 1138 >>
+stream
+BT
+1 0 0 1 72 750 Tm
+/F2 24 Tf
+( spec subset) Tj
+/F1 24 Tf
+/F1 24 Tf
+1 0 0 1 72 720 Tm
+/F1 12 Tf
+(Markdown / Obsidian format spec references at some point) Tj
+/F1 12 Tf
+(_) Tj
+1 0 0 1 72 705 Tm
+/F1 12 Tf
+(- ) Tj
+/F1 12 Tf
+() Tj
+/F3 12 Tf
+(Refactor the renderer) Tj
+/F1 12 Tf
+() Tj
+1 0 0 1 72 690 Tm
+/F1 12 Tf
+(- ) Tj
+/F1 12 Tf
+(~Word-wrapping~) Tj
+1 0 0 1 72 675 Tm
+/F1 12 Tf
+(- ) Tj
+/F1 12 Tf
+(Italic underscore, don't skip) Tj
+1 0 0 1 72 660 Tm
+/F1 12 Tf
+(- ) Tj
+/F1 12 Tf
+(Tab / indent overflowing \(set tabcount on span and repeat it on cursor reset?\)) Tj
+1 0 0 1 72 645 Tm
+/F1 12 Tf
+(    - ~) Tj
+/F2 12 Tf
+(non-ASCII) Tj
+/F1 12 Tf
+(~) Tj
+1 0 0 1 72 630 Tm
+/F1 12 Tf
+(- ) Tj
+/F1 12 Tf
+() Tj
+/F2 12 Tf
+(Multipage) Tj
+/F1 12 Tf
+() Tj
+1 0 0 1 72 615 Tm
+/F1 12 Tf
+(- ) Tj
+/F1 12 Tf
+(~Bolded, italic text~) Tj
+1 0 0 1 72 600 Tm
+/F1 12 Tf
+(- ) Tj
+/F1 12 Tf
+(CMake) Tj
+1 0 0 1 72 585 Tm
+/F1 12 Tf
+(- ) Tj
+/F1 12 Tf
+(compile) Tj
+/F1 12 Tf
+(_commands.json) Tj
+1 0 0 1 72 570 Tm
+/F1 12 Tf
+(- ) Tj
+/F1 12 Tf
+(.h files -> compilation units, linking) Tj
+1 0 0 1 72 555 Tm
 /F1 12 Tf
 (- ) Tj
 /F1 12 Tf
@@ -126,17 +337,19 @@ endstream
 endobj
 
 xref
-0 8
+0 10
 0000000000 65535 f 
 0000000016 00000 n 
 0000000066 00000 n 
-0000000124 00000 n 
-0000000501 00000 n 
-0000000275 00000 n 
-0000000346 00000 n 
-0000000422 00000 n 
+0000000132 00000 n 
+0000000203 00000 n 
+0000000279 00000 n 
+0000000358 00000 n 
+0000000509 00000 n 
+0000003486 00000 n 
+0000003637 00000 n 
 trailer
-<< /Size 8 /Root 1 0 R >>
+<< /Size 10 /Root 1 0 R >>
 startxref
-1962
+5038
 %%EOF

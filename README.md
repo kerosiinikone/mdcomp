@@ -1,6 +1,7 @@
 # note-compiler (set tabcount on span and repeat it on cursor reset?)
 
 ### A simple Markdown compiler, **PDF spec subset**
+_Markdown / Obsidian format spec references at some point_
 
 - _Refactor the renderer_
 - ~Word-wrapping~

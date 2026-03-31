@@ -82,7 +82,7 @@ typedef struct {
 		// endobj
 		struct {
 			size_t length;
-			const char *stream;
+			char *stream;
 		} content;
 	};
 } PDF_Object;
@@ -122,8 +122,16 @@ void pdf_obj_write(PDF_Context *pctx, PDF_Object *obj) {
 			fprintf(pctx->f, "<< /Pages %d 0 R /Type /Catalog >>\n", obj->catalog.pages_id);
 		} break;
 		case PDF_TREE: {
-			// TODO: dynamic table, count
-			fprintf(pctx->f, "<< /Count %d /Kids [%d 0 R] /Type /Pages >>\n", obj->tree.count, obj->tree.kids[0]);
+			fprintf(pctx->f, "<< /Count %d /Kids [\n", obj->tree.count);
+
+			int *kid_id = obj->tree.kids;
+			int *last_id = kid_id + obj->tree.count;
+
+			while (kid_id < last_id) {
+				fprintf(pctx->f, "%d 0 R\n", *kid_id);
+				kid_id++;
+			}
+			fprintf(pctx->f, "] /Type /Pages >>\n");
 		} break;
 		case PDF_PAGE: {
 			fprintf(pctx->f, "<<\n");
