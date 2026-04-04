@@ -34,81 +34,93 @@ endobj
 endobj
 
 7 0 obj
-<< /Length 1123 >>
+<< /Length 1169 >>
 stream
 BT
 1 0 0 1 72 750 Tm
 /F1 24 Tf
-(note-compiler \(set tabcount on) Tj
+(note-compiler) Tj
 1 0 0 1 72 720 Tm
-/F1 24 Tf
-( span and repeat it on cursor reset?\)) Tj
-1 0 0 1 72 690 Tm
 /F1 24 Tf
 (A simple Markdown compiler, ) Tj
 /F2 24 Tf
 (PDF) Tj
-1 0 0 1 72 660 Tm
+1 0 0 1 72 690 Tm
 /F2 24 Tf
 ( spec subset) Tj
 /F1 24 Tf
-1 0 0 1 72 630 Tm
+1 0 0 1 72 660 Tm
 /F3 12 Tf
 (Markdown / Obsidian format spec references at some point) Tj
 /F1 12 Tf
-1 0 0 1 72 615 Tm
+1 0 0 1 72 645 Tm
 /F1 12 Tf
-(- ) Tj
+(-) Tj
+1 0 0 1 88 645 Tm
+/F1 12 Tf
+/F2 12 Tf
+(APIS) Tj
+/F1 12 Tf
+1 0 0 1 82 630 Tm
+/F1 12 Tf
+(-) Tj
+1 0 0 1 98 630 Tm
+/F1 12 Tf
+(Renderer) Tj
+1 0 0 1 82 615 Tm
+/F1 12 Tf
+(-) Tj
+1 0 0 1 98 615 Tm
+/F1 12 Tf
+(Parser) Tj
+1 0 0 1 82 600 Tm
+/F1 12 Tf
+(-) Tj
+1 0 0 1 98 600 Tm
 /F1 12 Tf
 /F3 12 Tf
-(Refactor the renderer) Tj
+(else?) Tj
 /F1 12 Tf
-1 0 0 1 72 600 Tm
-/F1 12 Tf
-(- ) Tj
-/F1 12 Tf
-(~Word-wrapping~) Tj
 1 0 0 1 72 585 Tm
 /F1 12 Tf
-(- ) Tj
-/F1 12 Tf
-(Italic underscore, don't skip) Tj
-1 0 0 1 72 570 Tm
-/F1 12 Tf
-(- ) Tj
-/F1 12 Tf
-(Margins, buffer changes in body nodes and spans) Tj
-1 0 0 1 72 555 Tm
-/F1 12 Tf
-(- ) Tj
-/F1 12 Tf
-(~) Tj
-/F2 12 Tf
-(non-ASCII) Tj
-/F1 12 Tf
-(~) Tj
-1 0 0 1 72 540 Tm
-/F1 12 Tf
-(- ) Tj
-/F1 12 Tf
-(~Bolded, italic text~) Tj
-1 0 0 1 72 525 Tm
-/F1 12 Tf
-(- ) Tj
+(-) Tj
+1 0 0 1 88 585 Tm
 /F1 12 Tf
 (CMake) Tj
-1 0 0 1 72 510 Tm
+1 0 0 1 82 570 Tm
 /F1 12 Tf
-(- ) Tj
+(-) Tj
+1 0 0 1 98 570 Tm
 /F1 12 Tf
 (compile) Tj
 /F1 12 Tf
 (_commands.json) Tj
-1 0 0 1 72 495 Tm
+1 0 0 1 72 555 Tm
 /F1 12 Tf
-(- ) Tj
+(-) Tj
+1 0 0 1 88 555 Tm
 /F1 12 Tf
-(.h files -> compilation units, linking) Tj
+(Margins) Tj
+1 0 0 1 72 540 Tm
+/F1 12 Tf
+(-) Tj
+1 0 0 1 88 540 Tm
+/F1 12 Tf
+(List item offsets and alignments) Tj
+1 0 0 1 72 525 Tm
+/F1 12 Tf
+(-) Tj
+1 0 0 1 88 525 Tm
+/F1 12 Tf
+/F2 12 Tf
+(Memory allocations) Tj
+/F1 12 Tf
+1 0 0 1 72 510 Tm
+/F1 12 Tf
+(-) Tj
+1 0 0 1 88 510 Tm
+/F1 12 Tf
+(.h files) Tj
 ET
 endstream
 endobj
@@ -126,5 +138,5 @@ xref
 trailer
 << /Size 8 /Root 1 0 R >>
 startxref
-1848
+1894
 %%EOF

@@ -17,7 +17,6 @@
 #define DEFAULT_OUTPUT_PATH "./output.pdf"
 
 #define ALIGN_8(size) ((size) + 7) & ~7
-
 #define ARENA_SIZE 10 * 1024 * 1024
 
 #define HEADER_OFFSET 30
@@ -92,7 +91,7 @@ typedef struct {
 	size_t capacity;
 	size_t length;
 
-	int global_cursor;
+	size_t global_cursor;
 } Page_Context;
 
 Page_Context page_ctx_create(Arena *arena, size_t capacity) {
@@ -123,6 +122,9 @@ typedef struct Text_Span {
 
 typedef struct Node {
 	Node_Type type;
+	// union?
+	int list_depth;
+
 	Text_Span *text;
 	struct Node *child;
 	struct Node *next;
@@ -190,10 +192,18 @@ void buf_ctx_append_trans(Buf_Context *ctx, const char *str, size_t length) {
 
 void temp_render_node(Arena *arena, Node *node, Page_Context *ctx);
 
-void node_draw_spans(Arena *arena, Page_Context *ctx, Buf_Context **curr_ctx, Text_Span *curr, Node_Type type, size_t *last_space_offset, size_t *cursor);
+void node_draw_spans(Arena *arena, 
+	Page_Context *ctx, 
+	Buf_Context **curr_ctx, 
+	Text_Span *curr, 
+	Node_Type type, 
+	size_t *last_space_offset, 
+	size_t *cursor
+);
 
 size_t node_font_size(Node_Type type);
 size_t node_offset_size(Node_Type type);
+size_t node_cursor_start(Node_Type type);
 
 int main(int argc, char *argv[]) 
 {
@@ -201,6 +211,7 @@ int main(int argc, char *argv[])
 	if (argc < 2 || argc > 2) return -1;
 
 	int fd = open(argv[1], O_RDONLY);
+
 	if (fd < 0) return -1;
 
 	if (fstat(fd, &st) == -1) {
@@ -221,6 +232,13 @@ int main(int argc, char *argv[])
 	Node *curr_node = root;
 	Node *last_root_child = root->child;
 
+	// list sequence
+	int indent_level = 0;
+	int stack_top = -1;
+
+	Node *list_stack[5] = {0};
+	int list_depths[5] = {0};
+
 	bool is_newline = true;
 
 	char *ptr = file_data;
@@ -237,17 +255,25 @@ int main(int argc, char *argv[])
 		{
 			case '\n': {
 				is_newline = true;
+				while (isspace((unsigned char)*ptr)) 
+				{ ptr++; indent_level++; }
+				ptr--;
 			} break;
 			case '#': {
 				if (ptr + 1 >= end) break;
+
 				if (!is_newline) goto add_char;
 
 				int hash_count = 1;
-				while (hash_count < 3 && ptr + hash_count < end && ptr[hash_count] == '#') {
+				while (hash_count < 3 && ptr + hash_count < end && 
+					ptr[hash_count] == '#') 
+				{
 					hash_count++;
 				}
 
-				if (ptr + hash_count >= end || !isspace((unsigned char)ptr[hash_count])) {
+				if (ptr + hash_count >= end || 
+					!isspace((unsigned char)ptr[hash_count])) 
+				{
 					goto add_char;
 				}
 
@@ -269,12 +295,14 @@ int main(int argc, char *argv[])
 						should_be_child = true;
 						break;
 					case NODE_HEADING:
-						should_be_child = (heading_type == NODE_MEDIUM_HEADING || heading_type == NODE_SMALL_HEADING);
+						should_be_child = (heading_type == NODE_MEDIUM_HEADING || 
+							heading_type == NODE_SMALL_HEADING);
 						should_be_sibling = (heading_type == NODE_HEADING);
 						break;
 					case NODE_MEDIUM_HEADING:
 						should_be_child = (heading_type == NODE_SMALL_HEADING);
-						should_be_sibling = (heading_type == NODE_HEADING || heading_type == NODE_MEDIUM_HEADING);
+						should_be_sibling = (heading_type == NODE_HEADING || 
+							heading_type == NODE_MEDIUM_HEADING);
 						break;
 					case NODE_SMALL_HEADING:
 						should_be_sibling = true;
@@ -303,7 +331,10 @@ int main(int argc, char *argv[])
 			} break;
 			case '-': {
 				if (ptr + 1 >= end) break;
-				if (!is_newline || !isspace((unsigned char)ptr[1])) {
+
+				if (!is_newline || 
+					!isspace((unsigned char)ptr[1])) 
+				{
 					goto add_char;
 				}
 
@@ -312,22 +343,65 @@ int main(int argc, char *argv[])
 
 				Text_Span *span = arena_alloc(&arena, sizeof(Text_Span));
 				span->type = STRING_REGULAR;
+				curr_fmt = STRING_REGULAR;
 				list->text = span;
 				curr_span = span;
-				curr_fmt = STRING_REGULAR;
 
-				if (curr_node->type == NODE_ROOT || curr_node->type == NODE_HEADING || curr_node->type == NODE_MEDIUM_HEADING || curr_node->type == NODE_SMALL_HEADING) {
+				if (curr_node->type == NODE_ROOT || 
+					curr_node->type == NODE_HEADING || 
+					curr_node->type == NODE_MEDIUM_HEADING || 
+					curr_node->type == NODE_SMALL_HEADING
+				) {
+					// initialize the list stack / seq
+					stack_top = 0;
+					list_stack[stack_top] = list;
+					list_depths[stack_top] = indent_level;
+
+					list->list_depth = stack_top;
 					curr_node->child = list;
+				} else if (curr_node->type == NODE_LIST) {
+					int prev_indent = list_depths[stack_top];
+
+					if (indent_level > prev_indent) {
+						// child
+						list_depths[++stack_top] = indent_level;
+						list->list_depth = stack_top;
+						list_stack[stack_top] = list;
+						curr_node->child = list;
+					} else if (indent_level < prev_indent) {
+						// parent
+						while (stack_top > -1 && list_depths[stack_top] > indent_level) stack_top--;
+						if (stack_top == -1 || list_depths[stack_top] > indent_level) {
+							stack_top = 0;
+							list_depths[stack_top] = indent_level;
+							list->list_depth = stack_top;
+							list_stack[stack_top]->next = list;
+							list_stack[stack_top] = list;
+						} else {
+							list->list_depth = stack_top;
+							list_stack[stack_top]->next = list;
+							list_stack[stack_top] = list;
+						}
+					} else {
+						// equal
+						list->list_depth = stack_top;
+						list_stack[stack_top]->next = list;
+						list_stack[stack_top] = list;
+					}
 				} else {
+					stack_top = 0;
+					list_stack[stack_top] = list;
+					list_depths[stack_top] = indent_level;
+
+					list->list_depth = stack_top;
 					curr_node->next = list;
 				}
-				ptr++;
 				curr_node = list;
 				is_newline = false;
+				ptr++;
 			} break;
 			// Make into a generic function to take in the format char and function pointer / types?
 			case '*': {
-				// -> if is_newline and next is a space -> list item!
 				if (ptr + 1 >= end) goto add_char;
 
 				if (ptr[1] != '*') {
@@ -357,8 +431,8 @@ int main(int argc, char *argv[])
 				} else {
 					curr_span->next = new_span;
 				}
+
 				curr_span = new_span;
-				
 				ptr++;
 			} break;
 			case '_': italic: {
@@ -437,6 +511,7 @@ int main(int argc, char *argv[])
 				}
 			} break;
 		}
+		if (!is_newline) indent_level = 0;
 		ptr += n;
 	}
 
@@ -460,7 +535,7 @@ int main(int argc, char *argv[])
 		buf_ctx_append(curr, "ET"); 
 	}
 
-	// Temp solution
+	// TODO: temp solution -> MAX_PAGES, check for overflowing
 	int kids[50] = {0};
 
 	PDF_Context pctx = {0};
@@ -545,12 +620,18 @@ void temp_render_node(Arena *arena, Node *node, Page_Context *ctx) {
 	{
 		Buf_Context *curr_ctx = ctx->data[ctx->length-1];
 
-		buf_ctx_append(curr_ctx, "1 0 0 1 72 %d Tm\n", ctx->global_cursor);
+		buf_ctx_append(curr_ctx, "1 0 0 1 %d %d Tm\n", 
+		 72 + node->list_depth * 10, 
+		 ctx->global_cursor
+		);
+
 		switch (node->type) {
-			case NODE_HEADING: case NODE_MEDIUM_HEADING: case NODE_SMALL_HEADING: {
+			case NODE_HEADING: 
+			case NODE_MEDIUM_HEADING: 
+			case NODE_SMALL_HEADING: {
 				Text_Span *curr = node->text;
 
-				size_t cursor = 72;
+				size_t cursor = node_cursor_start(node->type);
 				size_t last_space_offset = 0;
 
 				while (curr) 
@@ -588,15 +669,15 @@ void temp_render_node(Arena *arena, Node *node, Page_Context *ctx) {
 				}
 				break;
 			}
-			// TODO: 'write_list' -> more appropriate list indicators?
 			case NODE_LIST: {
 				Text_Span *curr = node->text;
 
-				size_t cursor = 72;
+				size_t cursor = node_cursor_start(node->type) + node->list_depth * 10;
 				size_t last_space_offset = 0;
 
 				buf_ctx_append(curr_ctx, "/F1 12 Tf\n");
-				buf_ctx_append(curr_ctx, "(- ) Tj\n");
+				buf_ctx_append(curr_ctx, "(-) Tj\n");
+				buf_ctx_append(curr_ctx, "1 0 0 1 %lu %d Tm\n", cursor, ctx->global_cursor);
 
 				while (curr) {
 					switch (curr->type) {
@@ -634,7 +715,7 @@ void temp_render_node(Arena *arena, Node *node, Page_Context *ctx) {
 			case NODE_PARAGRAPH: {
 				Text_Span *curr = node->text;
 
-				size_t cursor = 72;
+				size_t cursor = node_cursor_start(node->type);
 				size_t last_space_offset = 0;
 
 				while (curr) {
@@ -678,7 +759,14 @@ void temp_render_node(Arena *arena, Node *node, Page_Context *ctx) {
 	}
 }
 
-void node_draw_spans(Arena *arena, Page_Context *ctx, Buf_Context **curr_ctx, Text_Span *curr, Node_Type type, size_t *last_space_offset, size_t *cursor) {
+void node_draw_spans(Arena *arena, 
+	Page_Context *ctx, 
+	Buf_Context **curr_ctx, 
+	Text_Span *curr, 
+	Node_Type type, 
+	size_t *last_space_offset, 
+	size_t *cursor
+) {
 	char *span_ptr = (char*)curr->view.start;
 	char *end = span_ptr + curr->view.length;
 	char *segment_start = span_ptr;
@@ -729,11 +817,11 @@ void node_draw_spans(Arena *arena, Page_Context *ctx, Buf_Context **curr_ctx, Te
 				break;
 			}
 			segment_start += emit_length;
-			*cursor = 72;
+			// TODO: align according to the list depth
+			*cursor = node_cursor_start(type);
 			char_index = 0;
 			*last_space_offset = 0;
 		}
-		// glyph width, font size
 		*cursor += font_size / 2;
 		span_ptr += n;
 		char_index += n;
@@ -749,9 +837,12 @@ void node_draw_spans(Arena *arena, Page_Context *ctx, Buf_Context **curr_ctx, Te
 
 size_t node_font_size(Node_Type type) {
 	switch (type) {
-	case NODE_HEADING: case NODE_MEDIUM_HEADING: case NODE_SMALL_HEADING:
+	case NODE_HEADING: 
+	case NODE_MEDIUM_HEADING: 
+	case NODE_SMALL_HEADING:
 		return 24;
-	case NODE_LIST: case NODE_PARAGRAPH:
+	case NODE_LIST: 
+	case NODE_PARAGRAPH:
 		return 12;
 	default: return -1;
 	}
@@ -759,10 +850,20 @@ size_t node_font_size(Node_Type type) {
 
 size_t node_offset_size(Node_Type type) {
 	switch (type) {
-	case NODE_HEADING: case NODE_MEDIUM_HEADING: case NODE_SMALL_HEADING:
+	case NODE_HEADING: 
+	case NODE_MEDIUM_HEADING: 
+	case NODE_SMALL_HEADING:
 		return HEADER_OFFSET;
-	case NODE_LIST: case NODE_PARAGRAPH:
+	case NODE_LIST: 
+	case NODE_PARAGRAPH:
 		return BODY_OFFSET;
 	default: return -1;
+	}
+}
+
+size_t node_cursor_start(Node_Type type) {
+	switch (type) {
+	case NODE_LIST: return 88;
+	default: return 72;
 	}
 }

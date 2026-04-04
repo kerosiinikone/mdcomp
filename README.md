@@ -1,14 +1,15 @@
-# note-compiler (set tabcount on span and repeat it on cursor reset?)
+# note-compiler
 
 ### A simple Markdown compiler, **PDF spec subset**
 _Markdown / Obsidian format spec references at some point_
 
-- _Refactor the renderer_
-- ~Word-wrapping~
-- Italic underscore, don't skip
-- Margins, buffer changes in body nodes and spans
-- ~**non-ASCII**~
-- ~Bolded, italic text~
+- **APIS**
+    - Renderer
+    - Parser
+    - _else?_
 - CMake
-- compile_commands.json
-- .h files -> compilation units, linking
+    - compile_commands.json
+- Margins
+- List item offsets and alignments
+- **Memory allocations**
+- .h files
