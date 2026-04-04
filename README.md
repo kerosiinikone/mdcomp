@@ -6,11 +6,9 @@ _Markdown / Obsidian format spec references at some point_
 - _Refactor the renderer_
 - ~Word-wrapping~
 - Italic underscore, don't skip
-- Tab / indent overflowing (set tabcount on span and repeat it on cursor reset?)
-    - ~**non-ASCII**~
-- **Multipage**
+- Margins, buffer changes in body nodes and spans
+- ~**non-ASCII**~
 - ~Bolded, italic text~
 - CMake
 - compile_commands.json
 - .h files -> compilation units, linking
-- *italic*
