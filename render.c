@@ -115,6 +115,8 @@ void pdf_obj_end(PDF_Context *pctx) {
 	fprintf(pctx->f, "endobj\n\n");
 }
 
+void pdf_font_add();
+
 void pdf_obj_write(PDF_Context *pctx, PDF_Object *obj) {
 	pdf_obj_start(pctx, obj);
 	switch (obj->type) {
@@ -145,13 +147,13 @@ void pdf_obj_write(PDF_Context *pctx, PDF_Object *obj) {
 		case PDF_FONT: {
 			switch (obj->font) {
 				case FONT_REGULAR: {
-					fprintf(pctx->f, "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\n");
+					fprintf(pctx->f, "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>\n");
 				} break;
 				case FONT_BOLD: {
-					fprintf(pctx->f, "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>\n");
+					fprintf(pctx->f, "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>\n");
 				} break;
 				case FONT_ITALIC: {
-					fprintf(pctx->f, "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Oblique >>\n");
+					fprintf(pctx->f, "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Oblique /Encoding /WinAnsiEncoding >>\n");
 				} break;
 			}
 		} break;

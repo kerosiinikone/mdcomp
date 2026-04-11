@@ -12,15 +12,15 @@ endobj
 endobj
 
 3 0 obj
-<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
 endobj
 
 4 0 obj
-<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>
 endobj
 
 5 0 obj
-<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Oblique >>
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Oblique /Encoding /WinAnsiEncoding >>
 endobj
 
 6 0 obj
@@ -34,93 +34,93 @@ endobj
 endobj
 
 7 0 obj
-<< /Length 1169 >>
+<< /Length 1401 >>
 stream
 BT
-1 0 0 1 72 750 Tm
-/F1 24 Tf
-(note-compiler) Tj
 1 0 0 1 72 720 Tm
 /F1 24 Tf
-(A simple Markdown compiler, ) Tj
-/F2 24 Tf
-(PDF) Tj
-1 0 0 1 72 690 Tm
-/F2 24 Tf
-( spec subset) Tj
-/F1 24 Tf
+<6E6F74652D636F6D70696C657220E4E4E4> Tj
 1 0 0 1 72 660 Tm
+/F1 24 Tf
+<412073696D706C65204D61726B646F776E20636F6D70696C65722C20> Tj
+/F2 24 Tf
+<504446> Tj
+1 0 0 1 72 630 Tm
+/F2 24 Tf
+<7370656320737562736574> Tj
+/F1 24 Tf
+1 0 0 1 72 600 Tm
 /F3 12 Tf
-(Markdown / Obsidian format spec references at some point) Tj
-/F1 12 Tf
-1 0 0 1 72 645 Tm
-/F1 12 Tf
-(-) Tj
-1 0 0 1 88 645 Tm
-/F1 12 Tf
-/F2 12 Tf
-(APIS) Tj
-/F1 12 Tf
-1 0 0 1 82 630 Tm
-/F1 12 Tf
-(-) Tj
-1 0 0 1 98 630 Tm
-/F1 12 Tf
-(Renderer) Tj
-1 0 0 1 82 615 Tm
-/F1 12 Tf
-(-) Tj
-1 0 0 1 98 615 Tm
-/F1 12 Tf
-(Parser) Tj
-1 0 0 1 82 600 Tm
-/F1 12 Tf
-(-) Tj
-1 0 0 1 98 600 Tm
-/F1 12 Tf
-/F3 12 Tf
-(else?) Tj
+<4D61726B646F776E202F204F6273696469616E20666F726D61742073706563207265666572656E63657320617420736F6D6520706F696E74> Tj
 /F1 12 Tf
 1 0 0 1 72 585 Tm
 /F1 12 Tf
 (-) Tj
 1 0 0 1 88 585 Tm
 /F1 12 Tf
-(CMake) Tj
+/F2 12 Tf
+<41504953> Tj
+/F1 12 Tf
 1 0 0 1 82 570 Tm
 /F1 12 Tf
 (-) Tj
 1 0 0 1 98 570 Tm
 /F1 12 Tf
-(compile) Tj
-/F1 12 Tf
-(_commands.json) Tj
-1 0 0 1 72 555 Tm
+<52656E6465726572> Tj
+1 0 0 1 82 555 Tm
 /F1 12 Tf
 (-) Tj
-1 0 0 1 88 555 Tm
+1 0 0 1 98 555 Tm
 /F1 12 Tf
-(Margins) Tj
-1 0 0 1 72 540 Tm
+<506172736572> Tj
+1 0 0 1 82 540 Tm
 /F1 12 Tf
 (-) Tj
-1 0 0 1 88 540 Tm
+1 0 0 1 98 540 Tm
 /F1 12 Tf
-(List item offsets and alignments) Tj
+/F3 12 Tf
+<656C73653F> Tj
+/F1 12 Tf
 1 0 0 1 72 525 Tm
 /F1 12 Tf
 (-) Tj
 1 0 0 1 88 525 Tm
 /F1 12 Tf
-/F2 12 Tf
-(Memory allocations) Tj
-/F1 12 Tf
-1 0 0 1 72 510 Tm
+<434D616B65> Tj
+1 0 0 1 82 510 Tm
 /F1 12 Tf
 (-) Tj
-1 0 0 1 88 510 Tm
+1 0 0 1 98 510 Tm
 /F1 12 Tf
-(.h files) Tj
+<636F6D70696C65> Tj
+/F1 12 Tf
+<5F636F6D6D616E64732E6A736F6E> Tj
+1 0 0 1 72 495 Tm
+/F1 12 Tf
+(-) Tj
+1 0 0 1 88 495 Tm
+/F1 12 Tf
+<4D617267696E73> Tj
+1 0 0 1 72 480 Tm
+/F1 12 Tf
+(-) Tj
+1 0 0 1 88 480 Tm
+/F1 12 Tf
+<4C697374206974656D206F66667365747320616E6420616C69676E6D656E7473> Tj
+1 0 0 1 72 465 Tm
+/F1 12 Tf
+(-) Tj
+1 0 0 1 88 465 Tm
+/F1 12 Tf
+/F2 12 Tf
+<4D656D6F727920616C6C6F636174696F6E73> Tj
+/F1 12 Tf
+1 0 0 1 72 450 Tm
+/F1 12 Tf
+(-) Tj
+1 0 0 1 88 450 Tm
+/F1 12 Tf
+<2E682066696C6573> Tj
 ET
 endstream
 endobj
@@ -131,12 +131,12 @@ xref
 0000000016 00000 n 
 0000000066 00000 n 
 0000000126 00000 n 
-0000000197 00000 n 
-0000000273 00000 n 
-0000000352 00000 n 
-0000000503 00000 n 
+0000000224 00000 n 
+0000000327 00000 n 
+0000000433 00000 n 
+0000000584 00000 n 
 trailer
 << /Size 8 /Root 1 0 R >>
 startxref
-1894
+2207
 %%EOF

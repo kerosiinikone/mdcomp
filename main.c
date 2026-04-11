@@ -21,8 +21,113 @@
 
 #define HEADER_OFFSET 30
 #define BODY_OFFSET 15
+// margins
 #define DRAW_AREA 612-72*2
 #define PAGE_HEIGHT 750
+
+static const int HELVETICA_WIDTHS[256] = {
+	[32] = 278, 
+	[33] = 278, 
+	[34] = 355, 
+	[35] = 556, 
+	[36] = 556, 
+	[37] = 889, 
+	[38] = 667, 
+	[39] = 191, 
+	[40] = 333, 
+	[41] = 333, 
+	[42] = 389, 
+	[43] = 584, 
+	[44] = 278, 
+	[45] = 333, 
+	[46] = 278, 
+	[47] = 278, 
+	[48] = 556, 
+	[49] = 556, 
+	[50] = 556, 
+	[51] = 556, 
+	[52] = 556, 
+	[53] = 556, 
+	[54] = 556, 
+	[55] = 556, 
+	[56] = 556, 
+	[57] = 556, 
+	[58] = 278, 
+	[59] = 278, 
+	[60] = 584, 
+	[61] = 584, 
+	[62] = 584, 
+	[63] = 556, 
+	[64] = 1015,
+	[65] = 667, 
+	[66] = 667, 
+	[67] = 722, 
+	[68] = 722, 
+	[69] = 667, 
+	[70] = 611, 
+	[71] = 778, 
+	[72] = 722, 
+	[73] = 278, 
+	[74] = 500, 
+	[75] = 667, 
+	[76] = 556, 
+	[77] = 833, 
+	[78] = 722, 
+	[79] = 778, 
+	[80] = 667, 
+	[81] = 778, 
+	[82] = 722, 
+	[83] = 667, 
+	[84] = 611, 
+	[85] = 722, 
+	[86] = 667, 
+	[87] = 944, 
+	[88] = 667, 
+	[89] = 667, 
+	[90] = 611, 
+	[91] = 278, 
+	[92] = 278, 
+	[93] = 278, 
+	[94] = 469, 
+	[95] = 556, 
+	[96] = 333, 
+	[97] = 556, 
+	[98] = 556, 
+	[99] = 500, 
+	[100] = 556,
+	[101] = 556,
+	[102] = 278,
+	[103] = 556,
+	[104] = 556,
+	[105] = 222,
+	[106] = 222,
+	[107] = 500,
+	[108] = 222,
+	[109] = 833,
+	[110] = 556,
+	[111] = 556,
+	[112] = 556,
+	[113] = 556,
+	[114] = 333,
+	[115] = 500,
+	[116] = 278,
+	[117] = 556,
+	[118] = 500,
+	[119] = 722,
+	[120] = 500,
+	[121] = 500,
+	[122] = 500,
+	[123] = 334,
+	[124] = 260,
+	[125] = 334,
+	[126] = 584,
+	[0xC4] = 667, 
+	[0xC5] = 667, 
+	[0xD6] = 778, 
+	[0xE4] = 556, 
+	[0xE5] = 556, 
+	[0xF6] = 556, 
+};
 
 size_t utf8_char_length(unsigned char leading_byte) {
 	if ((leading_byte & 0x80) == 0x00) return 1; 
@@ -122,7 +227,6 @@ typedef struct Text_Span {
 
 typedef struct Node {
 	Node_Type type;
-	// union?
 	int list_depth;
 
 	Text_Span *text;
@@ -147,58 +251,50 @@ void buf_ctx_append(Buf_Context *ctx, char *fmt, ...) {
 	}
 }
 
-char utf8_to_ascii(const char **ptr) {
-	unsigned char first_byte = (unsigned char)(**ptr);
-	size_t n = utf8_char_length(first_byte);
-
-	if (n == 1) {
-		(*ptr)++;
-		return first_byte;
-	}
-	if (n == 2) {
-		unsigned char second_byte = (unsigned char)(*ptr)[1];
-		uint16_t codepoint = ((first_byte & 0x1F) << 6) | (second_byte & 0x3F);
-		switch (codepoint) {
-			case 0xE4: case 0xE5:
-				*ptr += 2; return 'a';
-			case 0xF6:
-				*ptr += 2; return 'o';
-			case 0xC4: case 0xC5:
-				*ptr += 2; return 'A';
-			case 0xD6:
-				*ptr += 2; return 'O';
-			default:
-				*ptr += 2; return '?';
-		}
-	}
-	*ptr += n;
-	return '?';
-}
-
-void buf_ctx_append_trans(Buf_Context *ctx, const char *str, size_t length) {
+void buf_ctx_append_winansi(Buf_Context *ctx, const char *str, size_t length) {
 	const char *ptr = str;
 	const char *end = str + length;
 	
+	buf_ctx_append(ctx, "<");
 	while (ptr < end && ctx->offset < ctx->capacity - 1) {
-		char ascii_char = utf8_to_ascii(&ptr);
-		switch (ascii_char) {
-			case '(': case ')': case '\\': {
-				ctx->data[ctx->offset++] = '\\';
+		uint8_t char_len = utf8_char_length((unsigned char)*ptr);
+
+		if (char_len == 1) {
+			switch (*ptr) {
+				case '(': case ')': case '\\': {
+					ctx->data[ctx->offset++] = '\\';
+				}
 			}
+			buf_ctx_append(ctx, "%02X", *ptr);
+		} else if (char_len == 2) {
+			uint8_t second_byte = (uint8_t)ptr[1];
+
+			if (second_byte == 0xA4) buf_ctx_append(ctx, "E4");
+			else if (second_byte == 0xB6) buf_ctx_append(ctx, "F6");
+			else if (second_byte == 0xA5) buf_ctx_append(ctx, "E5");
+			else if (second_byte == 0x84) buf_ctx_append(ctx, "C4");
+			else if (second_byte == 0x96) buf_ctx_append(ctx, "D6");
+			else if (second_byte == 0x85) buf_ctx_append(ctx, "C5");
+			else buf_ctx_append(ctx, "3F");
+		} else {
+			buf_ctx_append(ctx, "3F");
 		}
-		ctx->data[ctx->offset++] = ascii_char;
+		ptr += char_len;
 	}
+	buf_ctx_append(ctx, "> Tj\n");
 }
 
 void temp_render_node(Arena *arena, Node *node, Page_Context *ctx);
 
-void node_draw_spans(Arena *arena, 
+void node_draw_spans(
+	Arena *arena, 
 	Page_Context *ctx, 
 	Buf_Context **curr_ctx, 
 	Text_Span *curr, 
 	Node_Type type, 
 	size_t *last_space_offset, 
-	size_t *cursor
+	size_t *cursor,
+	int list_depth
 );
 
 size_t node_font_size(Node_Type type);
@@ -232,7 +328,6 @@ int main(int argc, char *argv[])
 	Node *curr_node = root;
 	Node *last_root_child = root->child;
 
-	// list sequence
 	int indent_level = 0;
 	int stack_top = -1;
 
@@ -246,11 +341,11 @@ int main(int argc, char *argv[])
 
 	Text_Span *curr_span = NULL;
 	String_Type curr_fmt = STRING_REGULAR;
-
-	while (ptr < end) 
-	{
-		size_t n = utf8_char_length((unsigned char)*ptr);
-
+ 
+ 	while (ptr < end) 
+ 	{
+ 		size_t n = utf8_char_length((unsigned char)*ptr);
+ 
 		switch (*ptr)
 		{
 			case '\n': {
@@ -265,7 +360,7 @@ int main(int argc, char *argv[])
 				if (!is_newline) goto add_char;
 
 				int hash_count = 1;
-				while (hash_count < 3 && ptr + hash_count < end && 
+				while (hash_count < 4 && ptr + hash_count < end && 
 					ptr[hash_count] == '#') 
 				{
 					hash_count++;
@@ -277,7 +372,7 @@ int main(int argc, char *argv[])
 					goto add_char;
 				}
 
-				Node_Type heading_type = hash_count;
+				Node_Type heading_type = hash_count % 4 == 0 ? 1 : hash_count;
 				Node *heading = arena_alloc(&arena, sizeof(Node));
 				heading->type = heading_type;
 
@@ -454,8 +549,7 @@ int main(int argc, char *argv[])
 						line_ptr++;
 					}
 
-					// spec for closing and not closing italic symbols?
-					// TODO: check for preceding spaces in the loop
+					// Check for preceding spaces in the loop
 					if (line_ptr >= end) break;
 					else if (*line_ptr == '\n') {
 						// will not be closed
@@ -515,7 +609,6 @@ int main(int argc, char *argv[])
 		ptr += n;
 	}
 
-	// TODO: heap allocated struct?
 	Buf_Context ctx = {
 		.data = arena_alloc(&arena, 50*1024),
 		.capacity = 50*1024,
@@ -593,7 +686,7 @@ int main(int argc, char *argv[])
 		PDF_Object page = {
 			.id = page_id,
 			.type = PDF_PAGE,
-			.page = { content_id, 612, 792, tree.id, 3 },
+			.page = { content_id, 612, 792, tree.id, font_reg.id },
 		};
 
 		pdf_obj_write(&pctx, &page);
@@ -613,16 +706,23 @@ int main(int argc, char *argv[])
 	return 0;
 }
 
-// TODO: heading margin for before paragraphs! -> check for prev element?
 void temp_render_node(Arena *arena, Node *node, Page_Context *ctx) {
 	if (node == NULL) return;
 	while (node)
 	{
 		Buf_Context *curr_ctx = ctx->data[ctx->length-1];
 
-		buf_ctx_append(curr_ctx, "1 0 0 1 %d %d Tm\n", 
-		 72 + node->list_depth * 10, 
-		 ctx->global_cursor
+		if (node->type == NODE_HEADING || 
+			node->type == NODE_MEDIUM_HEADING || 
+			node->type == NODE_SMALL_HEADING
+		) {
+			ctx->global_cursor -= HEADER_OFFSET;
+		}
+		buf_ctx_append(
+			curr_ctx, 
+			"1 0 0 1 %d %d Tm\n",  
+			72 + node->list_depth * 10, 
+			ctx->global_cursor
 		);
 
 		switch (node->type) {
@@ -647,7 +747,7 @@ void temp_render_node(Arena *arena, Node *node, Page_Context *ctx) {
 						buf_ctx_append(curr_ctx, "/F3 24 Tf\n");
 						break;
 					}
-					node_draw_spans(arena, ctx, &curr_ctx, curr, node->type, &last_space_offset, &cursor);
+					node_draw_spans(arena, ctx, &curr_ctx, curr, node->type, &last_space_offset, &cursor, 0);
 					curr = curr->next;
 				}
 
@@ -692,7 +792,7 @@ void temp_render_node(Arena *arena, Node *node, Page_Context *ctx) {
 						break;
 					}
 
-					node_draw_spans(arena, ctx, &curr_ctx, curr, node->type, &last_space_offset, &cursor);
+					node_draw_spans(arena, ctx, &curr_ctx, curr, node->type, &last_space_offset, &cursor, node->list_depth);
 					curr = curr->next;
 				}
 
@@ -730,7 +830,7 @@ void temp_render_node(Arena *arena, Node *node, Page_Context *ctx) {
 						buf_ctx_append(curr_ctx, "/F3 12 Tf\n");
 						break;
 					}
-					node_draw_spans(arena, ctx, &curr_ctx, curr, node->type, &last_space_offset, &cursor);
+					node_draw_spans(arena, ctx, &curr_ctx, curr, node->type, &last_space_offset, &cursor, 0);
 					curr = curr->next;
 				}
 
@@ -753,19 +853,22 @@ void temp_render_node(Arena *arena, Node *node, Page_Context *ctx) {
 			default:
 				break;
 		}
-        	if (node->child)
+        	if (node->child) {
         		temp_render_node(arena, node->child, ctx);
+        	}
         	node = node->next;
 	}
 }
 
-void node_draw_spans(Arena *arena, 
+void node_draw_spans(
+	Arena *arena, 
 	Page_Context *ctx, 
 	Buf_Context **curr_ctx, 
 	Text_Span *curr, 
 	Node_Type type, 
-	size_t *last_space_offset, 
-	size_t *cursor
+	size_t *last_space_offset,  
+	size_t *cursor,
+	int list_depth
 ) {
 	char *span_ptr = (char*)curr->view.start;
 	char *end = span_ptr + curr->view.length;
@@ -784,13 +887,9 @@ void node_draw_spans(Arena *arena,
 		}
 		if (*cursor > DRAW_AREA) {
 			int emit_length = *last_space_offset > 0 ? *last_space_offset : char_index;
-
-			buf_ctx_append(*curr_ctx, "(");
-			buf_ctx_append_trans(*curr_ctx, segment_start, emit_length);
-			buf_ctx_append(*curr_ctx, ") Tj\n");
+			buf_ctx_append_winansi(*curr_ctx, segment_start, emit_length);
 
 			ctx->global_cursor -= offset;
-
 			if (ctx->global_cursor < 72) {
 				buf_ctx_append(*curr_ctx, "ET");
 
@@ -803,7 +902,8 @@ void node_draw_spans(Arena *arena,
 				*curr_ctx = new_ctx;
 				ctx->global_cursor = PAGE_HEIGHT;
 			}
-			buf_ctx_append(*curr_ctx, "1 0 0 1 72 %d Tm\n", ctx->global_cursor);
+			size_t x_pos = node_cursor_start(type) + 10 * list_depth;
+			buf_ctx_append(*curr_ctx, "1 0 0 1 %lu %d Tm\n", x_pos, ctx->global_cursor);
 			
 			switch (curr->type) {
 				case STRING_REGULAR:
@@ -817,20 +917,29 @@ void node_draw_spans(Arena *arena,
 				break;
 			}
 			segment_start += emit_length;
-			// TODO: align according to the list depth
-			*cursor = node_cursor_start(type);
+			if (*last_space_offset > 0) segment_start++;
+
+			*cursor = x_pos;
 			char_index = 0;
+			// TODO: between spans?
 			*last_space_offset = 0;
 		}
-		*cursor += font_size / 2;
+
+		int char_width = 556; 
+		if (n == 1 && *span_ptr >= 32 && *span_ptr <= 126) {
+			char_width = HELVETICA_WIDTHS[(unsigned char)*span_ptr];
+		} else {
+			char_width = HELVETICA_WIDTHS[(unsigned char)*span_ptr];
+			if (char_width == 0) char_width = 556;
+		}
+		*cursor += (char_width * font_size) / 1000;
+
 		span_ptr += n;
 		char_index += n;
 	}
 	int rest = span_ptr - segment_start;
 	if (rest > 0) {
-		buf_ctx_append(*curr_ctx, "(");
-		buf_ctx_append_trans(*curr_ctx, segment_start, rest);
-		buf_ctx_append(*curr_ctx, ") Tj\n");
+		buf_ctx_append_winansi(*curr_ctx, segment_start, rest);
 	}
 	*last_space_offset = 0;
 }

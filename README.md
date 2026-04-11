@@ -1,4 +1,4 @@
-# note-compiler
+# note-compiler äää
 
 ### A simple Markdown compiler, **PDF spec subset**
 _Markdown / Obsidian format spec references at some point_
