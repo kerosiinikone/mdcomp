@@ -173,7 +173,7 @@ void pdf_xref_table_write(PDF_Context *pctx) {
 	fprintf(pctx->f, "xref\n");
 	fprintf(pctx->f, "0 %zu\n", pctx->obj_count);
 	fprintf(pctx->f, "0000000000 65535 f \n");
-	for (int i = 1; i < pctx->obj_count; i++) {
+	for (size_t i = 1; i < pctx->obj_count; i++) {
 		fprintf(pctx->f, "%010ld 00000 n \n", pctx->offsets[i]);
 	}
 }
