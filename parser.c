@@ -1,8 +1,14 @@
+#include <assert.h>
 #include <ctype.h>
 #include <stdbool.h>
 #include <stddef.h>
 
 #include "parser.h"
+
+#define PARSER_CHECK_BOUNDS(p, n) ((p)->ptr + (n) < (p)->end)
+
+#define MAX_LIST_COUNT 5
+#define MAX_HASH_COUNT 4
 
 struct Parser {
   Arena *arena;
@@ -10,16 +16,16 @@ struct Parser {
   Node *curr_node;
   Node *last_root_child;
 
-  int indent_level;
+  size_t indent_level;
   int stack_top;
 
-  Node *list_stack[LIST_STACK_MAX];
-  int list_depths[LIST_STACK_MAX];
+  Node *list_stack[MAX_LIST_COUNT];
+  size_t list_depths[MAX_LIST_COUNT];
 
   bool is_newline;
 
-  char *ptr;
-  char *end;
+  const char *ptr;
+  const char *end;
 
   Text_Span *curr_span;
   String_Type curr_fmt;
@@ -37,12 +43,12 @@ size_t utf8_char_length(unsigned char leading_byte) {
   return -1;
 }
 
-static bool is_breakline(char *ptr, char *end) {
-  return ptr + 2 < end && *ptr == '_' && ptr[1] == '_' && ptr[2] == '_';
+static bool is_breakline(Parser *p) {
+  return PARSER_CHECK_BOUNDS(p, 2) && *(p->ptr) == '_' && p->ptr[1] == '_' && p->ptr[2] == '_';
 }
 
 static void handle_newline(Parser *p) {
-  if (p->ptr + 1 < p->end && p->ptr[1] == '\n') {
+  if (PARSER_CHECK_BOUNDS(p, 1) && p->ptr[1] == '\n') {
     Node *br_nl = arena_alloc(p->arena, sizeof(Node));
     br_nl->type = NODE_BREAK_NO_LINE;
     p->curr_node->next = br_nl;
@@ -88,24 +94,24 @@ static void handle_default(Parser *p, size_t n) {
 }
 
 static void handle_heading(Parser *p, size_t n) {
-  if (p->ptr + 1 >= p->end)
+  if (!PARSER_CHECK_BOUNDS(p, 1))
     return;
 
   if (!p->is_newline)
     return handle_default(p, n);
 
-  int hash_count = 1;
-  while (hash_count < 4 && p->ptr + hash_count < p->end &&
+  size_t hash_count = 1;
+  while (hash_count < MAX_HASH_COUNT && PARSER_CHECK_BOUNDS(p, hash_count) &&
          p->ptr[hash_count] == '#') {
     hash_count++;
   }
 
-  if (p->ptr + hash_count >= p->end ||
+  if (!PARSER_CHECK_BOUNDS(p, hash_count) ||
       !isspace((unsigned char)p->ptr[hash_count])) {
     return handle_default(p, n);
   }
 
-  Node_Type heading_type = hash_count % 4 == 0 ? 1 : hash_count;
+  Node_Type heading_type = hash_count % MAX_HASH_COUNT == 0 ? 1 : hash_count;
   Node *heading = arena_alloc(p->arena, sizeof(Node));
   heading->type = heading_type;
 
@@ -163,7 +169,7 @@ static void handle_heading(Parser *p, size_t n) {
 }
 
 static void handle_list(Parser *p, size_t n) {
-  if (p->ptr + 1 >= p->end)
+  if (!PARSER_CHECK_BOUNDS(p, 1))
     return;
 
   if (!p->is_newline || !isspace((unsigned char)p->ptr[1])) {
@@ -189,7 +195,7 @@ static void handle_list(Parser *p, size_t n) {
     list->list_depth = p->stack_top;
     p->curr_node->child = list;
   } else if (p->curr_node->type == NODE_LIST) {
-    int prev_indent = p->list_depths[p->stack_top];
+    size_t prev_indent = p->list_depths[p->stack_top];
 
     if (p->indent_level > prev_indent) {
       // child
@@ -234,7 +240,7 @@ static void handle_list(Parser *p, size_t n) {
 }
 
 static void handle_underscore(Parser *p, size_t n) {
-  if (p->is_newline && is_breakline(p->ptr, p->end)) {
+  if (p->is_newline && is_breakline(p)) {
     Node *br = arena_alloc(p->arena, sizeof(Node));
     br->type = NODE_BREAK;
     p->curr_node->next = br;
@@ -256,13 +262,12 @@ static void handle_underscore(Parser *p, size_t n) {
     if (isspace((unsigned char)p->ptr[1]))
       return handle_default(p, n);
 
-    char italic = *p->ptr;
-    char *line_ptr = p->ptr + 1;
+    const char italic = *p->ptr;
+    const char *line_ptr = p->ptr + 1;
 
     while (line_ptr < p->end && *line_ptr != '\n' && *line_ptr != italic) {
       line_ptr++;
     }
-
     // Check for preceding spaces in the loop?
     if (line_ptr >= p->end)
       return;
@@ -293,7 +298,7 @@ static void handle_underscore(Parser *p, size_t n) {
 }
 
 static void handle_asterix(Parser *p, size_t n) {
-  if (p->ptr + 1 >= p->end)
+  if (!PARSER_CHECK_BOUNDS(p, 1))
     return handle_default(p, n);
 
   if (p->ptr[1] != '*') {
@@ -336,7 +341,7 @@ Parser *parser_create(Arena *arena) {
   return parser;
 }
 
-Node *parser_parse(Parser *p, char *input, size_t len) {
+Node *parser_parse(Parser *p, const char *input, size_t len) {
   p->root = arena_alloc(p->arena, sizeof(Node));
   p->curr_node = p->root;
   p->last_root_child = p->root->child;
@@ -354,6 +359,7 @@ Node *parser_parse(Parser *p, char *input, size_t len) {
 
   while (p->ptr < p->end) {
     size_t n = utf8_char_length((unsigned char)*(p->ptr));
+    // bool parse_error;
 
     switch (*(p->ptr)) {
     case '\n': {

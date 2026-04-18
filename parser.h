@@ -4,8 +4,6 @@
 #include <stddef.h>
 #include "arena.h"
 
-#define LIST_STACK_MAX 5
-
 typedef struct Parser Parser;
 
 typedef enum {
@@ -37,7 +35,7 @@ typedef struct Text_Span {
 
 typedef struct Node {
   Node_Type type;
-  int list_depth;
+  size_t list_depth;
 
   Text_Span *text;
   struct Node *child;
@@ -45,8 +43,7 @@ typedef struct Node {
 } Node;
 
 Parser *parser_create(Arena *arena);
-// const char?
-Node *parser_parse(Parser *p, char *input, size_t len);
+Node *parser_parse(Parser *p, const char *input, size_t len);
 
 size_t utf8_char_length(unsigned char leading_byte);
 
