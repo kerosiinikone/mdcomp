@@ -1,6 +1,7 @@
 #ifndef FORMAT_T
 #define FORMAT_T
 
+#include <stdbool.h>
 #include <stddef.h>
 
 #include "arena.h"
@@ -13,8 +14,10 @@ typedef struct {
   size_t offset;
 } Page_Context;
 
-Page_Context page_buf_create(Arena *arena, size_t page_capacity);
+Page_Context page_buf_create(Arena *arena, size_t capacity);
 
-void page_buf_write(Page_Context *ctx, char *fmt, ...);
+bool page_buf_write(Page_Context *ctx, const char *fmt, ...);
+
+void page_buf_reset(Page_Context *ctx);
 
 #endif

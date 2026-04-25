@@ -12,6 +12,12 @@
 #define MAX_OBJ_COUNT 256
 #define MAX_PAGES 50
 
+#define PDF_CMD_BEGIN_TEXT "BT\n"
+#define PDF_CMD_END_TEXT "ET"
+#define PDF_CMD_END_SHOW_TEXT "> Tj\n"
+#define PDF_CMD_BEGIN_SHOW_TEXT "<"
+#define PDF_CMD_LIST_BULLET "(-) Tj\n"
+
 typedef enum {
   PDF_CATALOG,
   PDF_TREE,
@@ -54,12 +60,12 @@ typedef struct PDF_Context PDF_Context;
 PDF_Context *pdf_create(Arena *arena);
 
 bool pdf_init(PDF_Context *ctx, const char *fp);
-void pdf_obj_write(PDF_Context *pctx, PDF_Object *obj);
+bool pdf_obj_write(PDF_Context *pctx, const PDF_Object *obj);
 void pdf_xref_table_write(PDF_Context *pctx);
 void pdf_trailer_write(PDF_Context *pctx);
 void pdf_close(PDF_Context *pctx);
 
-void pdf_text_span_write(Page_Context *ctx, const char *str, size_t length);
+bool pdf_text_span_write(Page_Context *ctx, const char *str, size_t length);
 void pdf_stream_write_end(Page_Context *ctx);
 void pdf_stream_write_start(Page_Context *ctx);
 void pdf_stream_set_cursor(Page_Context *ctx, size_t x, size_t y);

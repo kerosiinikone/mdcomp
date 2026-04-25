@@ -44,15 +44,22 @@ int main(int argc, char *argv[]) {
   Arena arena = arena_create(ARENA_SIZE);
 
   Parser_Context *parser = parser_create(&arena);
+  if (parser == NULL)
+    return -1;
   Node *root = parser_parse(parser, file_data, filesize);
 
   PDF_Context *pdf = pdf_create(&arena);
+  if (pdf == NULL)
+    return -1;
   if (!pdf_init(pdf, DEFAULT_OUTPUT_PATH)) {
     return -1;
   }
 
-  Render_Context *render = render_create(&arena, 1024 * 1024);
-  render_document(render, pdf, root);
+  Render_Context *render = render_create(&arena, MAX_PAGES);
+  if (render == NULL)
+    return -1;
+  if (!render_document(render, pdf, root))
+    return -1;
 
   arena_destroy(&arena);
   munmap(file_data, filesize);

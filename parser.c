@@ -333,6 +333,8 @@ static void handle_asterix(Parser_Context *p, size_t n) {
 
 Parser_Context *parser_create(Arena *arena) {
   Parser_Context *parser = arena_alloc(arena, sizeof(Parser_Context));
+  if (parser == NULL)
+    return NULL;
   parser->arena = arena;
   return parser;
 }
