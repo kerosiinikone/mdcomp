@@ -5,6 +5,8 @@
 
 #include "arena.h"
 
+#define PAGE_BUFFER_SIZE (50 * 1024)
+
 typedef struct {
   char *data;
   size_t capacity;

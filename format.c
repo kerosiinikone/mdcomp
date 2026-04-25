@@ -23,5 +23,5 @@ void page_buf_write(Page_Context *ctx, char *fmt, ...) {
 
 Page_Context page_buf_create(Arena *arena, size_t capacity) {
   return (Page_Context){
-      .data = arena_alloc(arena, 50 * 1024), .capacity = capacity, .offset = 0};
+      .data = arena_alloc(arena, PAGE_BUFFER_SIZE), .capacity = capacity, .offset = 0};
 }

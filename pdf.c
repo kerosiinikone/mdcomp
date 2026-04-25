@@ -3,9 +3,21 @@
 #include <stddef.h>
 #include <stdio.h>
 
+#include "arena.h"
 #include "format.h"
 #include "parser.h"
 #include "pdf.h"
+
+struct PDF_Context {
+  FILE *f;
+  long offsets[MAX_OBJ_COUNT];
+  size_t obj_count;
+  size_t root;
+};
+
+PDF_Context *pdf_create(Arena *arena) {
+  return (PDF_Context *)arena_alloc(arena, sizeof(PDF_Context));
+}
 
 bool pdf_init(PDF_Context *ctx, const char *fp) {
   FILE *f = fopen(fp, "wb");

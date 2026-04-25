@@ -2,14 +2,19 @@
 #define RENDER_H
 
 #include "arena.h"
-#include "format.h"
 #include "parser.h"
 #include "pdf.h"
 
 #define HEADER_OFFSET 30
+#define BODY_FONT_SIZE 12
+#define HEADER_FONT_SIZE 24
+#define LIST_OFFSET 88
 #define BODY_OFFSET 15
-#define DRAW_AREA 612 - 72 * 2
-#define PAGE_HEIGHT 750
+#define PAGE_MARGIN 72
+#define PAGE_WIDTH 612
+#define PAGE_HEIGHT 792
+#define DRAW_AREA (PAGE_WIDTH - PAGE_MARGIN * 2)
+#define RENDER_HEIGHT 750
 
 typedef struct Render_Context Render_Context;
 

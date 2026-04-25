@@ -49,12 +49,9 @@ typedef struct {
   };
 } PDF_Object;
 
-typedef struct {
-  FILE *f;
-  long offsets[MAX_OBJ_COUNT];
-  size_t obj_count;
-  size_t root;
-} PDF_Context;
+typedef struct PDF_Context PDF_Context;
+
+PDF_Context *pdf_create(Arena *arena);
 
 bool pdf_init(PDF_Context *ctx, const char *fp);
 void pdf_obj_write(PDF_Context *pctx, PDF_Object *obj);

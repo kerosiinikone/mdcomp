@@ -46,13 +46,13 @@ int main(int argc, char *argv[]) {
   Parser_Context *parser = parser_create(&arena);
   Node *root = parser_parse(parser, file_data, filesize);
 
-  PDF_Context pdf;
-  if (!pdf_init(&pdf, DEFAULT_OUTPUT_PATH)) {
+  PDF_Context *pdf = pdf_create(&arena);
+  if (!pdf_init(pdf, DEFAULT_OUTPUT_PATH)) {
     return -1;
   }
 
   Render_Context *render = render_create(&arena, 1024 * 1024);
-  render_document(render, &pdf, root);
+  render_document(render, pdf, root);
 
   arena_destroy(&arena);
   munmap(file_data, filesize);
