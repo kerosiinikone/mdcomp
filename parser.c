@@ -5,6 +5,8 @@
 
 #include "parser.h"
 
+#define PARSER_CHECK_BOUNDS(p, n) ((p)->ptr + (n) < (p)->end)
+
 struct Parser_Context {
   Arena *arena;
   Node *root;
@@ -26,7 +28,7 @@ struct Parser_Context {
   String_Type curr_fmt;
 };
 
-size_t utf8_char_length(unsigned char leading_byte) {
+int utf8_char_length(unsigned char leading_byte) {
   if ((leading_byte & 0x80) == 0x00)
     return 1;
   if ((leading_byte & 0xE0) == 0xC0)
@@ -38,15 +40,58 @@ size_t utf8_char_length(unsigned char leading_byte) {
   return -1;
 }
 
+static Text_Span *create_text_span(Parser_Context *p, String_Type type) {
+  Text_Span *span = arena_alloc(p->arena, sizeof(Text_Span));
+  if (span == NULL)
+    return NULL;
+  span->type = type;
+  return span;
+}
+
+static Node *create_node(Parser_Context *p, Node_Type type) {
+  Node *node = arena_alloc(p->arena, sizeof(Node));
+  if (node == NULL)
+    return NULL;
+  node->type = type;
+  return node;
+}
+
+static bool attach_as_child(Parser_Context *p, Node *node) {
+  p->curr_node->child = node;
+  p->last_root_child = node;
+  p->curr_node = node;
+  return true;
+}
+
+static bool attach_as_sibling(Parser_Context *p, Node *node) {
+  p->curr_node->next = node;
+  p->last_root_child = node;
+  p->curr_node = node;
+  return true;
+}
+
+static bool attach_as_root_sibling(Parser_Context *p, Node *node) {
+  if (p->last_root_child == NULL) {
+    p->root->child = node;
+    p->last_root_child = node;
+  } else {
+    p->last_root_child->next = node;
+    p->last_root_child = node;
+  }
+  p->curr_node = node;
+  return true;
+}
+
 static bool is_breakline(Parser_Context *p) {
   return PARSER_CHECK_BOUNDS(p, 2) && *(p->ptr) == '_' && p->ptr[1] == '_' &&
          p->ptr[2] == '_';
 }
 
-static void handle_newline(Parser_Context *p) {
+static bool handle_newline(Parser_Context *p) {
   if (PARSER_CHECK_BOUNDS(p, 1) && p->ptr[1] == '\n') {
-    Node *br_nl = arena_alloc(p->arena, sizeof(Node));
-    br_nl->type = NODE_BREAK_NO_LINE;
+    Node *br_nl = create_node(p, NODE_BREAK_NO_LINE);
+    if (br_nl == NULL)
+      return false;
     p->curr_node->next = br_nl;
     p->curr_node = br_nl;
     p->ptr++;
@@ -57,15 +102,18 @@ static void handle_newline(Parser_Context *p) {
     p->indent_level++;
   }
   p->ptr--;
+  return true;
 }
 
-static void handle_default(Parser_Context *p, size_t n) {
+static bool handle_default(Parser_Context *p, size_t n) {
   if (p->is_newline) {
-    Node *par = arena_alloc(p->arena, sizeof(Node));
-    par->type = NODE_PARAGRAPH;
+    Node *par = create_node(p, NODE_PARAGRAPH);
+    if (par == NULL)
+      return false;
 
-    Text_Span *span = arena_alloc(p->arena, sizeof(Text_Span));
-    span->type = STRING_REGULAR;
+    Text_Span *span = create_text_span(p, STRING_REGULAR);
+    if (span == NULL)
+      return false;
     par->text = span;
     p->curr_span = span;
     p->curr_fmt = STRING_REGULAR;
@@ -87,11 +135,12 @@ static void handle_default(Parser_Context *p, size_t n) {
     }
     p->curr_span->view.length += n;
   }
+  return true;
 }
 
-static void handle_heading(Parser_Context *p, size_t n) {
+static bool handle_heading(Parser_Context *p, size_t n) {
   if (!PARSER_CHECK_BOUNDS(p, 1))
-    return;
+    return true;
 
   if (!p->is_newline)
     return handle_default(p, n);
@@ -108,11 +157,13 @@ static void handle_heading(Parser_Context *p, size_t n) {
   }
 
   Node_Type heading_type = hash_count % MAX_HASH_COUNT == 0 ? 1 : hash_count;
-  Node *heading = arena_alloc(p->arena, sizeof(Node));
-  heading->type = heading_type;
+  Node *heading = create_node(p, heading_type);
+  if (heading == NULL)
+    return false;
 
-  Text_Span *span = arena_alloc(p->arena, sizeof(Text_Span));
-  span->type = STRING_REGULAR;
+  Text_Span *span = create_text_span(p, STRING_REGULAR);
+  if (span == NULL)
+    return false;
   heading->text = span;
   p->curr_span = span;
   p->curr_fmt = STRING_REGULAR;
@@ -144,39 +195,35 @@ static void handle_heading(Parser_Context *p, size_t n) {
   default:
     break;
   }
+
   if (should_be_child) {
-    p->curr_node->child = heading;
-    p->last_root_child = heading;
+    attach_as_child(p, heading);
   } else if (should_be_sibling) {
-    p->curr_node->next = heading;
-    p->last_root_child = heading;
+    attach_as_sibling(p, heading);
   } else {
-    if (p->last_root_child == NULL) {
-      p->root->child = heading;
-      p->last_root_child = heading;
-    } else {
-      p->last_root_child->next = heading;
-      p->last_root_child = heading;
-    }
+    attach_as_root_sibling(p, heading);
   }
+
   p->ptr += hash_count;
-  p->curr_node = heading;
   p->is_newline = false;
+  return true;
 }
 
-static void handle_list(Parser_Context *p, size_t n) {
+static bool handle_list(Parser_Context *p, size_t n) {
   if (!PARSER_CHECK_BOUNDS(p, 1))
-    return;
+    return true;
 
   if (!p->is_newline || !isspace((unsigned char)p->ptr[1])) {
     return handle_default(p, n);
   }
 
-  Node *list = arena_alloc(p->arena, sizeof(Node));
-  list->type = NODE_LIST;
+  Node *list = create_node(p, NODE_LIST);
+  if (list == NULL)
+    return false;
 
-  Text_Span *span = arena_alloc(p->arena, sizeof(Text_Span));
-  span->type = STRING_REGULAR;
+  Text_Span *span = create_text_span(p, STRING_REGULAR);
+  if (span == NULL)
+    return false;
   p->curr_fmt = STRING_REGULAR;
   list->text = span;
   p->curr_span = span;
@@ -194,13 +241,13 @@ static void handle_list(Parser_Context *p, size_t n) {
     size_t prev_indent = p->list_depths[p->stack_top];
 
     if (p->indent_level > prev_indent) {
-      // child
+      if (p->stack_top >= MAX_LIST_COUNT - 1)
+        return false;
       p->list_depths[++p->stack_top] = p->indent_level;
       list->list_depth = p->stack_top;
       p->list_stack[p->stack_top] = list;
       p->curr_node->child = list;
     } else if (p->indent_level < prev_indent) {
-      // parent
       while (p->stack_top > -1 &&
              p->list_depths[p->stack_top] > p->indent_level)
         p->stack_top--;
@@ -208,16 +255,8 @@ static void handle_list(Parser_Context *p, size_t n) {
           p->list_depths[p->stack_top] > p->indent_level) {
         p->stack_top = 0;
         p->list_depths[p->stack_top] = p->indent_level;
-        list->list_depth = p->stack_top;
-        p->list_stack[p->stack_top]->next = list;
-        p->list_stack[p->stack_top] = list;
-      } else {
-        list->list_depth = p->stack_top;
-        p->list_stack[p->stack_top]->next = list;
-        p->list_stack[p->stack_top] = list;
       }
     } else {
-      // equal
       list->list_depth = p->stack_top;
       p->list_stack[p->stack_top]->next = list;
       p->list_stack[p->stack_top] = list;
@@ -233,29 +272,32 @@ static void handle_list(Parser_Context *p, size_t n) {
   p->curr_node = list;
   p->is_newline = false;
   p->ptr++;
+  return true;
 }
 
-static void handle_underscore(Parser_Context *p, size_t n) {
+static bool handle_underscore(Parser_Context *p, size_t n) {
   if (p->is_newline && is_breakline(p)) {
-    Node *br = arena_alloc(p->arena, sizeof(Node));
-    br->type = NODE_BREAK;
+    Node *br = create_node(p, NODE_BREAK);
+    if (br == NULL)
+      return false;
     p->curr_node->next = br;
     p->curr_node = br;
     p->is_newline = false;
     p->ptr += 2;
-    return;
+    return true;
   }
 
-  Text_Span *new_span = arena_alloc(p->arena, sizeof(Text_Span));
+  Text_Span *new_span = NULL;
 
   if (p->curr_fmt == STRING_ITALIC) {
-    if (isspace((unsigned char)p->ptr[-1]))
+    if (p->ptr && isspace((unsigned char)p->ptr[-1]))
       return handle_default(p, n);
 
     p->curr_fmt = STRING_REGULAR;
-    p->curr_span->type = STRING_ITALIC;
+    if (p->curr_span)
+      p->curr_span->type = STRING_ITALIC;
   } else {
-    if (isspace((unsigned char)p->ptr[1]))
+    if (PARSER_CHECK_BOUNDS(p, 1) && isspace((unsigned char)p->ptr[1]))
       return handle_default(p, n);
 
     const char italic = *p->ptr;
@@ -264,21 +306,32 @@ static void handle_underscore(Parser_Context *p, size_t n) {
     while (line_ptr < p->end && *line_ptr != '\n' && *line_ptr != italic) {
       line_ptr++;
     }
-    // Check for preceding spaces in the loop?
+
     if (line_ptr >= p->end)
-      return;
-    else if (*line_ptr == '\n') {
+      return true;
+
+    new_span = create_text_span(p, STRING_REGULAR);
+    if (new_span == NULL)
+      return false;
+
+    if (*line_ptr == '\n') {
       new_span->view.start = p->ptr;
       new_span->view.length++;
     } else {
       p->curr_fmt = STRING_ITALIC;
     }
-    new_span->type = STRING_REGULAR;
+  }
+
+  if (new_span == NULL) {
+    new_span = create_text_span(p, STRING_REGULAR);
+    if (new_span == NULL)
+      return false;
   }
 
   if (p->is_newline) {
-    Node *par = arena_alloc(p->arena, sizeof(Node));
-    par->type = NODE_PARAGRAPH;
+    Node *par = create_node(p, NODE_PARAGRAPH);
+    if (par == NULL)
+      return false;
     par->text = new_span;
     if (p->curr_node->type == NODE_PARAGRAPH) {
       p->curr_node->next = par;
@@ -288,12 +341,14 @@ static void handle_underscore(Parser_Context *p, size_t n) {
     p->curr_node = par;
     p->is_newline = false;
   } else {
-    p->curr_span->next = new_span;
+    if (p->curr_span)
+      p->curr_span->next = new_span;
   }
   p->curr_span = new_span;
+  return true;
 }
 
-static void handle_asterix(Parser_Context *p, size_t n) {
+static bool handle_asterix(Parser_Context *p, size_t n) {
   if (!PARSER_CHECK_BOUNDS(p, 1))
     return handle_default(p, n);
 
@@ -307,12 +362,14 @@ static void handle_asterix(Parser_Context *p, size_t n) {
     p->curr_fmt = STRING_BOLD;
   }
 
-  Text_Span *new_span = arena_alloc(p->arena, sizeof(Text_Span));
-  new_span->type = p->curr_fmt;
+  Text_Span *new_span = create_text_span(p, p->curr_fmt);
+  if (new_span == NULL)
+    return false;
 
   if (p->is_newline) {
-    Node *par = arena_alloc(p->arena, sizeof(Node));
-    par->type = NODE_PARAGRAPH;
+    Node *par = create_node(p, NODE_PARAGRAPH);
+    if (par == NULL)
+      return false;
     par->text = new_span;
     if (p->curr_node->type == NODE_PARAGRAPH ||
         p->curr_node->type == NODE_LIST || p->curr_node->type == NODE_BREAK ||
@@ -324,11 +381,13 @@ static void handle_asterix(Parser_Context *p, size_t n) {
     p->curr_node = par;
     p->is_newline = false;
   } else {
-    p->curr_span->next = new_span;
+    if (p->curr_span)
+      p->curr_span->next = new_span;
   }
 
   p->curr_span = new_span;
   p->ptr++;
+  return true;
 }
 
 Parser_Context *parser_create(Arena *arena) {
@@ -340,7 +399,12 @@ Parser_Context *parser_create(Arena *arena) {
 }
 
 Node *parser_parse(Parser_Context *p, const char *input, size_t len) {
-  p->root = arena_alloc(p->arena, sizeof(Node));
+  if (p == NULL || input == NULL)
+    return NULL;
+
+  p->root = create_node(p, NODE_ROOT);
+  if (p->root == NULL)
+    return NULL;
   p->curr_node = p->root;
   p->last_root_child = p->root->child;
 
@@ -356,29 +420,35 @@ Node *parser_parse(Parser_Context *p, const char *input, size_t len) {
   p->curr_fmt = STRING_REGULAR;
 
   while (p->ptr < p->end) {
-    size_t n = utf8_char_length((unsigned char)*(p->ptr));
-    // bool parse_error;
+    int char_len = utf8_char_length((unsigned char)*(p->ptr));
+    if (char_len < 1) {
+      return NULL;
+    }
+    size_t n = (size_t)char_len;
+    bool success = true;
 
     switch (*(p->ptr)) {
     case '\n': {
-      handle_newline(p);
+      success = handle_newline(p);
     } break;
     case '#': {
-      handle_heading(p, n);
+      success = handle_heading(p, n);
     } break;
     case '-': {
-      handle_list(p, n);
+      success = handle_list(p, n);
     } break;
     case '*': {
-      handle_asterix(p, n);
+      success = handle_asterix(p, n);
     } break;
     case '_': {
-      handle_underscore(p, n);
+      success = handle_underscore(p, n);
     } break;
     default: {
-      handle_default(p, n);
+      success = handle_default(p, n);
     } break;
     }
+    if (!success)
+      return NULL;
     if (!p->is_newline)
       p->indent_level = 0;
     p->ptr += n;

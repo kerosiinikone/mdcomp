@@ -5,8 +5,6 @@
 
 #include "arena.h"
 
-#define PARSER_CHECK_BOUNDS(p, n) ((p)->ptr + (n) < (p)->end)
-
 #define MAX_LIST_COUNT 5
 #define MAX_HASH_COUNT 4
 
@@ -52,7 +50,7 @@ Parser_Context *parser_create(Arena *arena);
 
 Node *parser_parse(Parser_Context *p, const char *input, size_t len);
 
-size_t utf8_char_length(unsigned char leading_byte);
+int utf8_char_length(unsigned char leading_byte);
 
 #endif
 

@@ -46,7 +46,10 @@ int main(int argc, char *argv[]) {
   Parser_Context *parser = parser_create(&arena);
   if (parser == NULL)
     return -1;
+
   Node *root = parser_parse(parser, file_data, filesize);
+  if (root == NULL)
+    return -1;
 
   PDF_Context *pdf = pdf_create(&arena);
   if (pdf == NULL)
