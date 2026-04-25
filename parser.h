@@ -2,9 +2,15 @@
 #define PARSER_H
 
 #include <stddef.h>
+
 #include "arena.h"
 
-typedef struct Parser Parser;
+#define PARSER_CHECK_BOUNDS(p, n) ((p)->ptr + (n) < (p)->end)
+
+#define MAX_LIST_COUNT 5
+#define MAX_HASH_COUNT 4
+
+typedef struct Parser_Context Parser_Context;
 
 typedef enum {
   NODE_ROOT,
@@ -42,8 +48,9 @@ typedef struct Node {
   struct Node *next;
 } Node;
 
-Parser *parser_create(Arena *arena);
-Node *parser_parse(Parser *p, const char *input, size_t len);
+Parser_Context *parser_create(Arena *arena);
+
+Node *parser_parse(Parser_Context *p, const char *input, size_t len);
 
 size_t utf8_char_length(unsigned char leading_byte);
 

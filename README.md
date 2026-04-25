@@ -4,11 +4,12 @@
 _Markdown / Obsidian format spec references at some point_
 
 - API restructure
-    - .h files
-- Error handling
+- **Error handling**
+- Configurability -> font sizes, margins
 - Quatation marks
 - Remove Obsidian tags (flag to remove n first lines)
-- _Numbered list (same as list but with ordering)_
+- Numbered list (same as list but with ordering)
 - _Bold italic?_
-- CMake
+    - Helvetica BoldOblique F4
+- Makefile
 - **Memory allocations**

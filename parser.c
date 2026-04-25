@@ -5,12 +5,7 @@
 
 #include "parser.h"
 
-#define PARSER_CHECK_BOUNDS(p, n) ((p)->ptr + (n) < (p)->end)
-
-#define MAX_LIST_COUNT 5
-#define MAX_HASH_COUNT 4
-
-struct Parser {
+struct Parser_Context {
   Arena *arena;
   Node *root;
   Node *curr_node;
@@ -43,11 +38,12 @@ size_t utf8_char_length(unsigned char leading_byte) {
   return -1;
 }
 
-static bool is_breakline(Parser *p) {
-  return PARSER_CHECK_BOUNDS(p, 2) && *(p->ptr) == '_' && p->ptr[1] == '_' && p->ptr[2] == '_';
+static bool is_breakline(Parser_Context *p) {
+  return PARSER_CHECK_BOUNDS(p, 2) && *(p->ptr) == '_' && p->ptr[1] == '_' &&
+         p->ptr[2] == '_';
 }
 
-static void handle_newline(Parser *p) {
+static void handle_newline(Parser_Context *p) {
   if (PARSER_CHECK_BOUNDS(p, 1) && p->ptr[1] == '\n') {
     Node *br_nl = arena_alloc(p->arena, sizeof(Node));
     br_nl->type = NODE_BREAK_NO_LINE;
@@ -63,7 +59,7 @@ static void handle_newline(Parser *p) {
   p->ptr--;
 }
 
-static void handle_default(Parser *p, size_t n) {
+static void handle_default(Parser_Context *p, size_t n) {
   if (p->is_newline) {
     Node *par = arena_alloc(p->arena, sizeof(Node));
     par->type = NODE_PARAGRAPH;
@@ -93,7 +89,7 @@ static void handle_default(Parser *p, size_t n) {
   }
 }
 
-static void handle_heading(Parser *p, size_t n) {
+static void handle_heading(Parser_Context *p, size_t n) {
   if (!PARSER_CHECK_BOUNDS(p, 1))
     return;
 
@@ -168,7 +164,7 @@ static void handle_heading(Parser *p, size_t n) {
   p->is_newline = false;
 }
 
-static void handle_list(Parser *p, size_t n) {
+static void handle_list(Parser_Context *p, size_t n) {
   if (!PARSER_CHECK_BOUNDS(p, 1))
     return;
 
@@ -239,7 +235,7 @@ static void handle_list(Parser *p, size_t n) {
   p->ptr++;
 }
 
-static void handle_underscore(Parser *p, size_t n) {
+static void handle_underscore(Parser_Context *p, size_t n) {
   if (p->is_newline && is_breakline(p)) {
     Node *br = arena_alloc(p->arena, sizeof(Node));
     br->type = NODE_BREAK;
@@ -297,7 +293,7 @@ static void handle_underscore(Parser *p, size_t n) {
   p->curr_span = new_span;
 }
 
-static void handle_asterix(Parser *p, size_t n) {
+static void handle_asterix(Parser_Context *p, size_t n) {
   if (!PARSER_CHECK_BOUNDS(p, 1))
     return handle_default(p, n);
 
@@ -335,13 +331,13 @@ static void handle_asterix(Parser *p, size_t n) {
   p->ptr++;
 }
 
-Parser *parser_create(Arena *arena) {
-  Parser *parser = arena_alloc(arena, sizeof(Parser));
+Parser_Context *parser_create(Arena *arena) {
+  Parser_Context *parser = arena_alloc(arena, sizeof(Parser_Context));
   parser->arena = arena;
   return parser;
 }
 
-Node *parser_parse(Parser *p, const char *input, size_t len) {
+Node *parser_parse(Parser_Context *p, const char *input, size_t len) {
   p->root = arena_alloc(p->arena, sizeof(Node));
   p->curr_node = p->root;
   p->last_root_child = p->root->child;
