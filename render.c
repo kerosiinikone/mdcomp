@@ -33,8 +33,9 @@ Render_Context *render_create(Arena *arena, size_t page_capacity) {
     return NULL;
   render->arena = arena;
   render->global_cursor = RENDER_HEIGHT;
-  render->pages = (Page_Context **)arena_alloc(arena, sizeof(Page_Context *) *
-                                                          page_capacity);
+  render->capacity = page_capacity;
+  render->pages =
+      (Page_Context **)arena_alloc(arena, sizeof(Page_Context *) * MAX_PAGES);
   return render;
 }
 
@@ -46,19 +47,21 @@ static bool document_append_page(Render_Context *r, Page_Context *page) {
 }
 
 static Page_Context *create_new_page(Render_Context *r) {
-  Page_Context new_ctx = page_buf_create(r->arena, PAGE_BUFFER_SIZE);
-  if (new_ctx.data == NULL)
+  Page_Context *new_ctx = arena_alloc(r->arena, sizeof(Page_Context));
+  if (new_ctx == NULL)
     return NULL;
-  pdf_stream_write_start(&new_ctx);
-  if (!document_append_page(r, &new_ctx))
+  *new_ctx = page_buf_create(r->arena, PAGE_BUFFER_SIZE);
+  if (new_ctx->data == NULL)
+    return NULL;
+  pdf_stream_write_start(new_ctx);
+  if (!document_append_page(r, new_ctx))
     return NULL;
   r->global_cursor = RENDER_HEIGHT;
   return r->pages[r->length - 1];
 }
 
-static Page_Context *create_page_with_space(Render_Context *r,
-                                            Page_Context *curr_ctx,
-                                            size_t offset) {
+static Page_Context *
+create_page_if_space(Render_Context *r, Page_Context *curr_ctx, size_t offset) {
   r->global_cursor -= offset;
   if (IS_PAGE_END(r->global_cursor)) {
     pdf_stream_write_end(curr_ctx);
@@ -98,7 +101,7 @@ static size_t node_cursor_start(Node_Type type) {
   }
 }
 
-static size_t get_x_position(Node_Type type, size_t list_depth) {
+static size_t get_horizontal_position(Node_Type type, size_t list_depth) {
   return node_cursor_start(type) + LIST_INDENT_STEP * list_depth;
 }
 
@@ -129,11 +132,11 @@ static bool handle_line_wrap(Render_Context *r, Page_Context **curr_ctx,
   if (!pdf_text_span_write(*curr_ctx, segment_start, emit_length))
     return false;
 
-  *curr_ctx = create_page_with_space(r, *curr_ctx, offset);
+  *curr_ctx = create_page_if_space(r, *curr_ctx, offset);
   if (*curr_ctx == NULL)
     return false;
 
-  size_t x_pos = get_x_position(type, list_depth);
+  size_t x_pos = get_horizontal_position(type, list_depth);
   pdf_stream_set_cursor(*curr_ctx, x_pos, r->global_cursor);
 
   set_font_for_span(*curr_ctx, span->type, font_size);
@@ -197,7 +200,7 @@ static bool render_node_spans(Render_Context *r, Page_Context **curr_ctx,
 static bool render_text_spans(Render_Context *r, Page_Context **curr_ctx,
                               Node *node, size_t font_size) {
   Text_Span *curr = node->text;
-  size_t cursor = get_x_position(node->type, node->list_depth);
+  size_t cursor = get_horizontal_position(node->type, node->list_depth);
   size_t last_space_offset = 0;
 
   while (curr) {
@@ -220,7 +223,7 @@ static bool render_heading_node(Render_Context *r, Page_Context **curr_ctx,
   if (!render_text_spans(r, curr_ctx, node, HEADER_FONT_SIZE))
     return false;
 
-  *curr_ctx = create_page_with_space(r, *curr_ctx, HEADER_OFFSET);
+  *curr_ctx = create_page_if_space(r, *curr_ctx, HEADER_OFFSET);
   return true;
 }
 
@@ -233,13 +236,13 @@ static bool render_list_node(Render_Context *r, Page_Context **curr_ctx,
   pdf_stream_change_font(*curr_ctx, FONT_REGULAR, BODY_FONT_SIZE);
   pdf_stream_write_list(*curr_ctx);
 
-  size_t cursor = get_x_position(node->type, node->list_depth);
+  size_t cursor = get_horizontal_position(node->type, node->list_depth);
   pdf_stream_set_cursor(*curr_ctx, cursor, r->global_cursor);
 
   if (!render_text_spans(r, curr_ctx, node, BODY_FONT_SIZE))
     return false;
 
-  *curr_ctx = create_page_with_space(r, *curr_ctx, BODY_OFFSET);
+  *curr_ctx = create_page_if_space(r, *curr_ctx, BODY_OFFSET);
   return true;
 }
 
@@ -252,7 +255,7 @@ static bool render_paragraph_node(Render_Context *r, Page_Context **curr_ctx,
   if (!render_text_spans(r, curr_ctx, node, BODY_FONT_SIZE))
     return false;
 
-  *curr_ctx = create_page_with_space(r, *curr_ctx, BODY_OFFSET);
+  *curr_ctx = create_page_if_space(r, *curr_ctx, BODY_OFFSET);
   return true;
 }
 
@@ -300,9 +303,12 @@ static bool render_node(Render_Context *r, Node *node) {
 bool render_document(Render_Context *r, PDF_Context *pdf, Node *root) {
   int page_ids[MAX_PAGES] = {0};
 
-  Page_Context initial_page = page_buf_create(r->arena, PAGE_BUFFER_SIZE);
-  pdf_stream_write_start(&initial_page);
-  if (!document_append_page(r, &initial_page))
+  Page_Context *initial_page = arena_alloc(r->arena, sizeof(Page_Context));
+  if (initial_page == NULL)
+    return false;
+  *initial_page = page_buf_create(r->arena, PAGE_BUFFER_SIZE);
+  pdf_stream_write_start(initial_page);
+  if (!document_append_page(r, initial_page))
     return false;
 
   if (!render_node(r, root))

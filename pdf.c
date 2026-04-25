@@ -49,7 +49,7 @@ static bool encode_utf8_char(Page_Context *ctx, const char *ptr,
       break;
     }
 
-    return page_buf_write(ctx, "%s", hex_code);
+    return page_buf_write(ctx, hex_code);
   } else if (char_len > 2) {
     return page_buf_write(ctx, "3F");
   }

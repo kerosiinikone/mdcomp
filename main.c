@@ -20,6 +20,7 @@
 
 int main(int argc, char *argv[]) {
   struct stat st;
+  // bool skip_obsidian_tag_flag = true;
 
   if (argc < 2 || argc > 2)
     return -1;
@@ -40,6 +41,16 @@ int main(int argc, char *argv[]) {
     close(fd);
     return -1;
   }
+
+  // if (skip_obsidian_tag_flag) {
+  //   int count = 0;
+  //   char *end = file_data + filesize;
+  //   while (file_data < end && count < 6) {
+  //     if (*file_data == '\n')
+  //       count++;
+  //     file_data++;
+  //   }
+  // }
 
   Arena arena = arena_create(ARENA_SIZE);
 

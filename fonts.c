@@ -30,7 +30,7 @@ size_t get_char_width(unsigned char c) {
   return width > 0 ? width : 556; 
 }
 
-size_t calculate_text_width(const char *text, size_t length, size_t font_size) {
+size_t get_text_width(const char *text, size_t length, size_t font_size) {
   size_t total_width = 0;
   const char *ptr = text;
   const char *end = text + length;
