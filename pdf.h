@@ -18,6 +18,11 @@
 #define PDF_CMD_BEGIN_SHOW_TEXT "<"
 #define PDF_CMD_LIST_BULLET "(-) Tj\n"
 
+#define PDF_FONT_REGULAR_ID 3
+#define PDF_FONT_BOLD_ID 4
+#define PDF_FONT_ITALIC_ID 5
+#define PDF_FIRST_PAGE_ID 6
+
 typedef enum {
   PDF_CATALOG,
   PDF_TREE,
@@ -64,6 +69,8 @@ bool pdf_obj_write(PDF_Context *pctx, const PDF_Object *obj);
 void pdf_xref_table_write(PDF_Context *pctx);
 void pdf_trailer_write(PDF_Context *pctx);
 void pdf_close(PDF_Context *pctx);
+
+void pdf_tree_init_pages(PDF_Object *tree, size_t first_page_id, size_t pages_length);
 
 bool pdf_text_span_write(Page_Context *ctx, const char *str, size_t length);
 void pdf_stream_write_end(Page_Context *ctx);

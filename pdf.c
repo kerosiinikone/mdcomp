@@ -154,6 +154,15 @@ void pdf_obj_start(PDF_Context *pctx, const PDF_Object *obj) {
 
 void pdf_obj_end(PDF_Context *pctx) { fprintf(pctx->f, "endobj\n\n"); }
 
+void pdf_tree_init_pages(PDF_Object *tree, size_t first_page_id,
+                         size_t pages_length) {
+  for (size_t page_id = 1; page_id < pages_length * 2; page_id += 2) {
+    if (tree->tree.count >= MAX_PAGES)
+      break;
+    tree->tree.kids[tree->tree.count++] = first_page_id + page_id - 1;
+  }
+}
+
 static void write_catalog_obj(PDF_Context *pctx, const PDF_Object *obj) {
   fprintf(pctx->f, "<< /Pages %d 0 R /Type /Catalog >>\n",
           obj->catalog.pages_id);

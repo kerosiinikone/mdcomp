@@ -13,9 +13,9 @@
    (type) == NODE_SMALL_HEADING || (type) == NODE_PARAGRAPH ||                 \
    (type) == NODE_LIST)
 
-#define IS_PAGE_END(cursor) ((cursor) < PAGE_MARGIN)
+#define IS_PAGE_END(cursor) ((cursor) <= PAGE_MARGIN)
 
-#define IS_PAGE_END_HOR(cursor) ((cursor) > DRAW_AREA)
+#define IS_PAGE_END_HOR(cursor) ((cursor) >= DRAW_AREA)
 
 struct Render_Context {
   Page_Context **pages;
@@ -181,7 +181,7 @@ static bool render_node_spans(Render_Context *r, Page_Context **curr_ctx,
         return false;
     }
 
-    int char_width = get_char_width((unsigned char)*span_ptr);
+    int char_width = get_char_width((unsigned char)*span_ptr, curr->type);
     *cursor += (char_width * font_size) / 1000;
 
     span_ptr += n;
@@ -329,11 +329,7 @@ bool render_document(Render_Context *r, PDF_Context *pdf, Node *root) {
   PDF_Object font_italic = {
       .id = PDF_FONT_ITALIC_ID, .type = PDF_FONT, .font = 3};
 
-  for (size_t page_id = 1; page_id < r->length * 2; page_id += 2) {
-    if (tree.tree.count >= MAX_PAGES)
-      break;
-    tree.tree.kids[tree.tree.count++] = PDF_FIRST_PAGE_ID + page_id - 1;
-  }
+  pdf_tree_init_pages(&tree, PDF_FIRST_PAGE_ID, r->length);
 
   pdf_obj_write(pdf, &cat);
   pdf_obj_write(pdf, &tree);
@@ -344,6 +340,7 @@ bool render_document(Render_Context *r, PDF_Context *pdf, Node *root) {
   size_t page_id = PDF_FIRST_PAGE_ID;
   size_t content_id = PDF_FIRST_PAGE_ID + 1;
 
+  // ref
   for (size_t i = 0; i < r->length; i++) {
     Page_Context *curr_buf = r->pages[i];
     PDF_Object contents = {.id = content_id,

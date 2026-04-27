@@ -17,11 +17,6 @@
 #define DRAW_AREA (PAGE_WIDTH - PAGE_MARGIN * 2)
 #define RENDER_HEIGHT 750
 
-#define PDF_FONT_REGULAR_ID 3
-#define PDF_FONT_BOLD_ID 4
-#define PDF_FONT_ITALIC_ID 5
-#define PDF_FIRST_PAGE_ID 6
-
 typedef struct Render_Context Render_Context;
 
 Render_Context *render_create(Arena *arena, size_t page_capacity);
