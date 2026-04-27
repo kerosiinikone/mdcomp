@@ -24,7 +24,7 @@ typedef enum {
   NODE_BREAK_NO_LINE,
 } Node_Type;
 
-typedef enum { STRING_REGULAR, STRING_BOLD, STRING_ITALIC } String_Type;
+typedef enum { STRING_REGULAR, STRING_BOLD, STRING_ITALIC, STRING_BI } String_Type;
 
 typedef struct {
   const char *start;

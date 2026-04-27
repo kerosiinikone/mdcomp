@@ -4,10 +4,10 @@
 
 - Configurability -> font sizes, margins
 - Project structure
-- _Bold italic_
-    - Helvetica BoldOblique F4
+- PDF logic -> make more dynamic, split up?
+- ***Bold italic***
 - **Makefile**
-- **Memory allocations**
+- *Memory **allocations***
 
 ___
 

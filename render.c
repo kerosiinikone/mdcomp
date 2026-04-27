@@ -117,6 +117,9 @@ static void set_font_for_span(Page_Context *ctx, String_Type span_type,
   case STRING_ITALIC:
     pdf_stream_change_font(ctx, FONT_ITALIC, font_size);
     break;
+  case STRING_BI:
+    pdf_stream_change_font(ctx, FONT_BI, font_size);
+    break;
   }
 }
 
@@ -324,10 +327,13 @@ bool render_document(Render_Context *r, PDF_Context *pdf, Node *root) {
   PDF_Object cat = {.id = 1, .type = PDF_CATALOG, .catalog = {2}};
   PDF_Object tree = {.id = 2, .type = PDF_TREE, .tree = {0, page_ids}};
   PDF_Object font_reg = {
-      .id = PDF_FONT_REGULAR_ID, .type = PDF_FONT, .font = 1};
-  PDF_Object font_bold = {.id = PDF_FONT_BOLD_ID, .type = PDF_FONT, .font = 2};
+      .id = PDF_FONT_REGULAR_ID, .type = PDF_FONT, .font = FONT_REGULAR};
+  PDF_Object font_bold = {
+      .id = PDF_FONT_BOLD_ID, .type = PDF_FONT, .font = FONT_BOLD};
   PDF_Object font_italic = {
-      .id = PDF_FONT_ITALIC_ID, .type = PDF_FONT, .font = 3};
+      .id = PDF_FONT_ITALIC_ID, .type = PDF_FONT, .font = FONT_ITALIC};
+  PDF_Object font_bi = {
+      .id = PDF_FONT_BI_ID, .type = PDF_FONT, .font = FONT_BI};
 
   pdf_tree_init_pages(&tree, PDF_FIRST_PAGE_ID, r->length);
 
@@ -336,6 +342,7 @@ bool render_document(Render_Context *r, PDF_Context *pdf, Node *root) {
   pdf_obj_write(pdf, &font_reg);
   pdf_obj_write(pdf, &font_bold);
   pdf_obj_write(pdf, &font_italic);
+  pdf_obj_write(pdf, &font_bi);
 
   size_t page_id = PDF_FIRST_PAGE_ID;
   size_t content_id = PDF_FIRST_PAGE_ID + 1;

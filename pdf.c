@@ -10,7 +10,8 @@
 
 static const char *FONT_NAMES[] = {[FONT_REGULAR] = "Helvetica",
                                    [FONT_BOLD] = "Helvetica-Bold",
-                                   [FONT_ITALIC] = "Helvetica-Oblique"};
+                                   [FONT_ITALIC] = "Helvetica-Oblique",
+                                   [FONT_BI] = "Helvetica-BoldOblique"};
 
 struct PDF_Context {
   FILE *f;
@@ -134,6 +135,10 @@ void pdf_stream_change_font(Page_Context *ctx, PDF_Font_Style style,
     page_buf_write(ctx, "/F3 %lu Tf\n", font_size);
     break;
   }
+  case FONT_BI: {
+    page_buf_write(ctx, "/F4 %lu Tf\n", font_size);
+    break;
+  }
   }
 }
 
@@ -187,16 +192,19 @@ static void write_page_obj(PDF_Context *pctx, const PDF_Object *obj) {
   fprintf(pctx->f, "	/Contents %d 0 R\n", obj->page.contents_id);
   fprintf(pctx->f, "	/Mediabox [0 0 %d %d]\n", obj->page.mb_x,
           obj->page.mb_y);
-  fprintf(pctx->f,
-          "	/Resources << /Font << /F1 %d 0 R /F2 %d 0 R /F3 %d 0 R >> "
-          ">>\n",
-          obj->page.font_id, obj->page.font_id + 1, obj->page.font_id + 2);
+  // TODO: make dynamic
+  fprintf(
+      pctx->f,
+      "	/Resources << /Font << /F1 %d 0 R /F2 %d 0 R /F3 %d 0 R /F4 %d 0 R >>"
+      ">>\n",
+      obj->page.font_id, obj->page.font_id + 1, obj->page.font_id + 2,
+      obj->page.font_id + 3);
   fprintf(pctx->f, ">>\n");
   fprintf(pctx->f, "/Type /Page\n");
 }
 
 static void write_font_obj(PDF_Context *pctx, const PDF_Object *obj) {
-  if (obj->font < FONT_REGULAR || obj->font > FONT_ITALIC)
+  if (obj->font < FONT_REGULAR || obj->font > FONT_BI)
     return;
 
   fprintf(pctx->f,

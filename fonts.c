@@ -77,6 +77,7 @@ size_t get_char_width(unsigned char c, String_Type type) {
 
   switch (type) {
   case STRING_BOLD:
+  case STRING_BI:
     width = HELVETICA_BOLD_WIDTHS[c];
     break;
   case STRING_ITALIC:

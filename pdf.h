@@ -21,7 +21,8 @@
 #define PDF_FONT_REGULAR_ID 3
 #define PDF_FONT_BOLD_ID 4
 #define PDF_FONT_ITALIC_ID 5
-#define PDF_FIRST_PAGE_ID 6
+#define PDF_FONT_BI_ID 6
+#define PDF_FIRST_PAGE_ID 7
 
 typedef enum {
   PDF_CATALOG,
@@ -31,7 +32,12 @@ typedef enum {
   PDF_FONT
 } PDF_Object_Type;
 
-typedef enum { FONT_REGULAR = 1, FONT_BOLD, FONT_ITALIC } PDF_Font_Style;
+typedef enum {
+  FONT_REGULAR = 1,
+  FONT_BOLD,
+  FONT_ITALIC,
+  FONT_BI
+} PDF_Font_Style;
 
 typedef struct {
   int id;
@@ -70,7 +76,8 @@ void pdf_xref_table_write(PDF_Context *pctx);
 void pdf_trailer_write(PDF_Context *pctx);
 void pdf_close(PDF_Context *pctx);
 
-void pdf_tree_init_pages(PDF_Object *tree, size_t first_page_id, size_t pages_length);
+void pdf_tree_init_pages(PDF_Object *tree, size_t first_page_id,
+                         size_t pages_length);
 
 bool pdf_text_span_write(Page_Context *ctx, const char *str, size_t length);
 void pdf_stream_write_end(Page_Context *ctx);
