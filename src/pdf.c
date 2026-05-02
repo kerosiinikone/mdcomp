@@ -4,7 +4,7 @@
 #include <stdio.h>
 
 #include "arena.h"
-#include "format.h"
+#include "page.h"
 #include "parser.h"
 #include "pdf.h"
 
@@ -214,15 +214,14 @@ static void write_page_obj(PDF_Context *pctx, const PDF_Object *obj) {
   fprintf(pctx->f, "<<\n");
   fprintf(pctx->f, "  /Parent %d 0 R\n", obj->page.parent_id);
   fprintf(pctx->f, "  /Contents %d 0 R\n", obj->page.contents_id);
-  fprintf(pctx->f, "  /MediaBox [0 0 %d %d]\n", obj->page.mb_x,
-          obj->page.mb_y);
+  fprintf(pctx->f, "  /MediaBox [0 0 %d %d]\n", obj->page.mb_x, obj->page.mb_y);
   fprintf(pctx->f, "  /Resources <<\n");
   fprintf(pctx->f, "    /Font <<\n");
-  
+
   for (int i = FONT_REGULAR; i <= FONT_BI; i++) {
     fprintf(pctx->f, "      /F%d %d 0 R\n", i, obj->page.font_id + i - 1);
   }
-  
+
   fprintf(pctx->f, "    >>\n");
   fprintf(pctx->f, "  >>\n");
   fprintf(pctx->f, "  /Type /Page\n");

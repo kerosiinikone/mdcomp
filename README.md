@@ -2,15 +2,18 @@
 
 ### A simple Markdown compiler, **PDF spec subset**
 
-- Configurability -> font sizes, margins
+- Configurability
+    - Font sizes
+    - Margins
+    - Flags in C? (skip_obsidian)
+    - Output
 - Project structure
-- PDF logic -> make more dynamic, split up?
-- ***Bold italic***
-- **Makefile**
-- *Memory **allocations***
+    - src/
+    - **Makefile**
+- *Memory allocations*
 
 ___
 
 #### Future
 
-_numbered list (same as list but with ordering)_
+Numbered list (same as list but with ordering)
