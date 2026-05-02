@@ -34,8 +34,8 @@ Render_Context *render_create(Arena *arena, size_t page_capacity) {
   render->arena = arena;
   render->global_cursor = RENDER_HEIGHT;
   render->capacity = page_capacity;
-  render->pages =
-      (Page_Context **)arena_alloc(arena, sizeof(Page_Context *) * page_capacity);
+  render->pages = (Page_Context **)arena_alloc(arena, sizeof(Page_Context *) *
+                                                          page_capacity);
   if (render->pages == NULL)
     return NULL;
   return render;
@@ -328,7 +328,7 @@ bool render_document(Render_Context *r, PDF_Context *pdf, Node *root) {
   int *tree_kids = (int *)arena_alloc(r->arena, sizeof(int) * r->length);
   if (tree_kids == NULL)
     return false;
-  
+
   PDF_Object tree = {.id = 2, .type = PDF_TREE, .tree = {0, tree_kids}};
   PDF_Object font_reg = {
       .id = PDF_FONT_REGULAR_ID, .type = PDF_FONT, .font = FONT_REGULAR};

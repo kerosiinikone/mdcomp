@@ -1,13 +1,21 @@
-# note-compiler
+# mdcomp
 
-### A simple Markdown compiler, **PDF spec subset**
+## A rudimentary PDF compiler for my Markdown notes
 
-- Configurability
-    - Font sizes
-    - Margins
+Compiles my Markdown notes into a PDF subset without needing to sync and use Obsidian or other tools. While a utility, this project primarily serves as a way to learn C.
 
-___
+## Markdown
 
-#### Future
+- Headings
+- Formatting
+- Regular lists (BUT not numbered lists)
+- Horizontal lines
 
-Numbered list (same as list but with ordering)
+## Example with defaults
+
+```bash
+make all
+make run
+make rebuild
+
+```
