@@ -5,10 +5,7 @@
 - Configurability
     - Font sizes
     - Margins
-    - Flags in C? (skip_obsidian)
-    - Output
 - Project structure
-    - src/
     - **Makefile**
 - *Memory allocations*
 
