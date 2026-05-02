@@ -18,6 +18,7 @@
 #define PDF_CMD_BEGIN_SHOW_TEXT "<"
 #define PDF_CMD_LIST_BULLET "(-) Tj\n"
 
+#define PDF_ROOT_ID 1
 #define PDF_FONT_REGULAR_ID 3
 #define PDF_FONT_BOLD_ID 4
 #define PDF_FONT_ITALIC_ID 5
@@ -48,7 +49,7 @@ typedef struct {
       int pages_id;
     } catalog;
     struct {
-      int count;
+      size_t count;
       int *kids;
     } tree;
     struct {
@@ -76,8 +77,7 @@ void pdf_xref_table_write(PDF_Context *pctx);
 void pdf_trailer_write(PDF_Context *pctx);
 void pdf_close(PDF_Context *pctx);
 
-void pdf_tree_init_pages(PDF_Object *tree, size_t first_page_id,
-                         size_t pages_length);
+void pdf_tree_init_pages(PDF_Object *tree, size_t pages_length);
 
 void pdf_write_render_pages(PDF_Context *pctx, Page_Context **pages,
                             size_t pages_length, int tree_id, int font_id);

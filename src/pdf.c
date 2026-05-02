@@ -62,11 +62,11 @@ PDF_Context *pdf_create(Arena *arena) {
   PDF_Context *ctx = (PDF_Context *)arena_alloc(arena, sizeof(PDF_Context));
   if (ctx == NULL)
     return NULL;
-  
+
   ctx->offsets = (long *)arena_alloc(arena, sizeof(long) * MAX_OBJ_COUNT);
   if (ctx->offsets == NULL)
     return NULL;
-  
+
   ctx->offsets_capacity = MAX_OBJ_COUNT;
   return ctx;
 }
@@ -192,10 +192,9 @@ void pdf_obj_start(PDF_Context *pctx, const PDF_Object *obj) {
 
 void pdf_obj_end(PDF_Context *pctx) { fprintf(pctx->f, "endobj\n\n"); }
 
-void pdf_tree_init_pages(PDF_Object *tree, size_t first_page_id,
-                         size_t pages_length) {
+void pdf_tree_init_pages(PDF_Object *tree, size_t pages_length) {
   for (size_t page_id = 1; page_id < pages_length * 2; page_id += 2) {
-    tree->tree.kids[tree->tree.count++] = first_page_id + page_id - 1;
+    tree->tree.kids[tree->tree.count++] = PDF_FIRST_PAGE_ID + page_id - 1;
   }
 }
 
@@ -205,7 +204,7 @@ static void write_catalog_obj(PDF_Context *pctx, const PDF_Object *obj) {
 }
 
 static void write_tree_obj(PDF_Context *pctx, const PDF_Object *obj) {
-  fprintf(pctx->f, "<< /Count %d /Kids [\n", obj->tree.count);
+  fprintf(pctx->f, "<< /Count %lu /Kids [\n", obj->tree.count);
 
   const int *kid_id = obj->tree.kids;
   const int *last_id = kid_id + obj->tree.count;

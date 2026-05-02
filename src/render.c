@@ -324,12 +324,15 @@ bool render_document(Render_Context *r, PDF_Context *pdf, Node *root) {
   if (last_page->offset != last_page->capacity)
     pdf_stream_write_end(last_page);
 
-  PDF_Object cat = {.id = 1, .type = PDF_CATALOG, .catalog = {2}};
+  int pages_id = PDF_ROOT_ID + 1;
+
+  PDF_Object cat = {
+      .id = PDF_ROOT_ID, .type = PDF_CATALOG, .catalog = {pages_id}};
   int *tree_kids = (int *)arena_alloc(r->arena, sizeof(int) * r->length);
   if (tree_kids == NULL)
     return false;
 
-  PDF_Object tree = {.id = 2, .type = PDF_TREE, .tree = {0, tree_kids}};
+  PDF_Object tree = {.id = pages_id, .type = PDF_TREE, .tree = {0, tree_kids}};
   PDF_Object font_reg = {
       .id = PDF_FONT_REGULAR_ID, .type = PDF_FONT, .font = FONT_REGULAR};
   PDF_Object font_bold = {
@@ -339,7 +342,7 @@ bool render_document(Render_Context *r, PDF_Context *pdf, Node *root) {
   PDF_Object font_bi = {
       .id = PDF_FONT_BI_ID, .type = PDF_FONT, .font = FONT_BI};
 
-  pdf_tree_init_pages(&tree, PDF_FIRST_PAGE_ID, r->length);
+  pdf_tree_init_pages(&tree, r->length);
 
   pdf_obj_write(pdf, &cat);
   pdf_obj_write(pdf, &tree);
