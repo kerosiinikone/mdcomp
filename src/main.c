@@ -19,6 +19,8 @@
 #define DEFAULT_OUTPUT_PATH "./output.pdf"
 #define OBSIDIAN_TAG_LINES 6
 
+int getopt(int ___argc, char *const *___argv, const char *__shortopts);
+
 int main(int argc, char *argv[]) {
   struct stat st;
   int opt;
@@ -38,12 +40,6 @@ int main(int argc, char *argv[]) {
     case 's':
       skip_obsidian = true;
       break;
-    case '?':
-      fprintf(stderr, "unknown option '-%c'\n", optopt);
-      return 1;
-    case ':':
-      fprintf(stderr, "option '-%c' requires an argument\n", optopt);
-      return 1;
     default:
       return 1;
     }

@@ -5,8 +5,6 @@
 - Configurability
     - Font sizes
     - Margins
-- Project structure
-    - **Makefile**
 - *Memory allocations*
 
 ___
