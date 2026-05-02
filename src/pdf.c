@@ -15,7 +15,8 @@ static const char *FONT_NAMES[] = {[FONT_REGULAR] = "Helvetica",
 
 struct PDF_Context {
   FILE *f;
-  long offsets[MAX_OBJ_COUNT];
+  long *offsets;
+  int offsets_capacity;
   size_t obj_count;
   size_t root;
 };
@@ -58,7 +59,16 @@ static bool encode_utf8_char(Page_Context *ctx, const char *ptr,
 }
 
 PDF_Context *pdf_create(Arena *arena) {
-  return (PDF_Context *)arena_alloc(arena, sizeof(PDF_Context));
+  PDF_Context *ctx = (PDF_Context *)arena_alloc(arena, sizeof(PDF_Context));
+  if (ctx == NULL)
+    return NULL;
+  
+  ctx->offsets = (long *)arena_alloc(arena, sizeof(long) * MAX_OBJ_COUNT);
+  if (ctx->offsets == NULL)
+    return NULL;
+  
+  ctx->offsets_capacity = MAX_OBJ_COUNT;
+  return ctx;
 }
 
 bool pdf_init(PDF_Context *ctx, const char *fp) {
@@ -67,7 +77,6 @@ bool pdf_init(PDF_Context *ctx, const char *fp) {
     return false;
 
   ctx->f = f;
-  ctx->offsets[0] = 0;
   ctx->obj_count = 1;
   ctx->root = 1;
 
@@ -186,8 +195,6 @@ void pdf_obj_end(PDF_Context *pctx) { fprintf(pctx->f, "endobj\n\n"); }
 void pdf_tree_init_pages(PDF_Object *tree, size_t first_page_id,
                          size_t pages_length) {
   for (size_t page_id = 1; page_id < pages_length * 2; page_id += 2) {
-    if (tree->tree.count >= MAX_PAGES)
-      break;
     tree->tree.kids[tree->tree.count++] = first_page_id + page_id - 1;
   }
 }
@@ -246,7 +253,7 @@ static void write_content_obj(PDF_Context *pctx, const PDF_Object *obj) {
 }
 
 bool pdf_obj_write(PDF_Context *pctx, const PDF_Object *obj) {
-  if (obj->id >= MAX_OBJ_COUNT)
+  if (obj->id >= pctx->offsets_capacity)
     return false;
 
   pdf_obj_start(pctx, obj);

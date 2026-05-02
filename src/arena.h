@@ -5,7 +5,7 @@
 #include <stdint.h>
 
 #define ALIGN_8(size) ((size) + 7) & ~7
-#define ARENA_SIZE 10 * 1024 * 1024
+#define ARENA_SIZE (8 * 1024 * 1024)  
 
 typedef struct Arena {
   uint8_t *data;

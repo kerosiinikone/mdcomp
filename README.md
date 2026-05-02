@@ -5,7 +5,6 @@
 - Configurability
     - Font sizes
     - Margins
-- *Memory allocations*
 
 ___
 

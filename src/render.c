@@ -35,7 +35,9 @@ Render_Context *render_create(Arena *arena, size_t page_capacity) {
   render->global_cursor = RENDER_HEIGHT;
   render->capacity = page_capacity;
   render->pages =
-      (Page_Context **)arena_alloc(arena, sizeof(Page_Context *) * MAX_PAGES);
+      (Page_Context **)arena_alloc(arena, sizeof(Page_Context *) * page_capacity);
+  if (render->pages == NULL)
+    return NULL;
   return render;
 }
 
@@ -304,8 +306,6 @@ static bool render_node(Render_Context *r, Node *node) {
 }
 
 bool render_document(Render_Context *r, PDF_Context *pdf, Node *root) {
-  int page_ids[MAX_PAGES] = {0};
-
   Page_Context *initial_page = arena_alloc(r->arena, sizeof(Page_Context));
   if (initial_page == NULL)
     return false;
@@ -325,7 +325,11 @@ bool render_document(Render_Context *r, PDF_Context *pdf, Node *root) {
     pdf_stream_write_end(last_page);
 
   PDF_Object cat = {.id = 1, .type = PDF_CATALOG, .catalog = {2}};
-  PDF_Object tree = {.id = 2, .type = PDF_TREE, .tree = {0, page_ids}};
+  int *tree_kids = (int *)arena_alloc(r->arena, sizeof(int) * r->length);
+  if (tree_kids == NULL)
+    return false;
+  
+  PDF_Object tree = {.id = 2, .type = PDF_TREE, .tree = {0, tree_kids}};
   PDF_Object font_reg = {
       .id = PDF_FONT_REGULAR_ID, .type = PDF_FONT, .font = FONT_REGULAR};
   PDF_Object font_bold = {

@@ -90,7 +90,6 @@ static List_Stack *create_list_stack(Parser_Context *p) {
   List_Stack *stack = arena_alloc(p->arena, sizeof(List_Stack));
   if (stack == NULL)
     return NULL;
-  stack->indent_level = 0;
   stack->stack_top = -1;
   return stack;
 }
