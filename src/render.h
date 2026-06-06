@@ -5,12 +5,17 @@
 #include "parser.h"
 #include "pdf.h"
 
-#define HEADER_OFFSET 30
 #define BODY_FONT_SIZE 12
-#define HEADER_FONT_SIZE 24
+#define H3_FONT_SIZE 16
+#define H2_FONT_SIZE 20
+#define H1_FONT_SIZE 26
+
+#define HEADER_OFFSET 30
 #define LIST_OFFSET 88
-#define LIST_INDENT_STEP 10
 #define BODY_OFFSET 15
+
+#define LIST_INDENT_STEP 10
+
 #define PAGE_MARGIN 72
 #define DRAW_AREA (PAGE_WIDTH - PAGE_MARGIN * 2)
 #define RENDER_HEIGHT 750

@@ -75,9 +75,11 @@ create_page_if_space(Render_Context *r, Page_Context *curr_ctx, size_t offset) {
 static size_t node_font_size(Node_Type type) {
   switch (type) {
   case NODE_HEADING:
+    return H1_FONT_SIZE;
   case NODE_MEDIUM_HEADING:
+    return H2_FONT_SIZE;
   case NODE_SMALL_HEADING:
-    return HEADER_FONT_SIZE;
+    return H3_FONT_SIZE;
   default:
     return BODY_FONT_SIZE;
   }
@@ -150,9 +152,10 @@ static bool handle_line_wrap(Render_Context *r, Page_Context **curr_ctx,
   if (*last_space_offset > 0)
     (*new_segment_start)++;
 
-  *cursor = x_pos;
-  *char_index = 0;
   *last_space_offset = 0;
+  *char_index = 0;
+
+  *cursor = x_pos;
   return true;
 }
 
@@ -178,12 +181,14 @@ static bool render_node_spans(Render_Context *r, Page_Context **curr_ctx,
     }
 
     if (IS_PAGE_END_HOR(*cursor)) {
-      int emit_length =
-          *last_space_offset > 0 ? *last_space_offset : char_index;
+      bool split_by_space = *last_space_offset > 0;
+      int emit_length = split_by_space ? *last_space_offset : char_index;
+
       if (!handle_line_wrap(r, curr_ctx, curr, type, list_depth, segment_start,
                             emit_length, cursor, &char_index, last_space_offset,
                             &segment_start))
         return false;
+      span_ptr = segment_start;
     }
 
     int char_width = get_char_width((unsigned char)*span_ptr, curr->type);
@@ -225,7 +230,7 @@ static bool render_heading_node(Render_Context *r, Page_Context **curr_ctx,
                         PAGE_MARGIN + node->list_depth * LIST_INDENT_STEP,
                         r->global_cursor);
 
-  if (!render_text_spans(r, curr_ctx, node, HEADER_FONT_SIZE))
+  if (!render_text_spans(r, curr_ctx, node, node_font_size(node->type)))
     return false;
 
   *curr_ctx = create_page_if_space(r, *curr_ctx, HEADER_OFFSET);

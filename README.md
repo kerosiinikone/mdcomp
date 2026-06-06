@@ -2,9 +2,9 @@
 
 ## A rudimentary PDF compiler for my Markdown notes
 
-Compiles my Markdown notes into a PDF subset without needing to sync and use Obsidian or other tools. While a utility, this project primarily serves as a way to learn C.
+Compiles my **Markdown notes** into a **PDF subset** without needing to sync and use Obsidian or other tools. While a utility, this project primarily serves as a way to learn C.
 
-## Markdown
+### Markdown
 
 - Headings
 - Formatting

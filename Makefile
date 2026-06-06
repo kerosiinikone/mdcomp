@@ -1,6 +1,5 @@
 CC = gcc
 CFLAGS = -Wall -Wextra
-LDFLAGS = -lm
 
 SRC_DIR = src
 BUILD_DIR = bin
@@ -17,7 +16,7 @@ SKIP_OBSIDIAN ?=
 all: $(BUILD_DIR) $(TARGET)
 
 $(TARGET): $(OBJS)
-	$(CC) $(OBJS) -o $(TARGET) $(LDFLAGS)
+	$(CC) $(OBJS) -o $(TARGET)
 
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c
 	$(CC) $(CFLAGS) -c $< -o $@

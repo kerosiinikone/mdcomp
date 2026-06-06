@@ -79,25 +79,49 @@ int main(int argc, char *argv[]) {
   Arena arena = arena_create(ARENA_SIZE);
 
   Parser_Context *parser = parser_create(&arena);
-  if (parser == NULL)
+  if (parser == NULL) {
+    arena_destroy(&arena);
+    munmap(file_data, filesize);
+    close(fd);
     return 1;
+  }
 
   Node *root = parser_parse(parser, file_data, filesize);
-  if (root == NULL)
+  if (root == NULL) {
+    arena_destroy(&arena);
+    munmap(file_data, filesize);
+    close(fd);
     return 1;
+  }
 
   PDF_Context *pdf = pdf_create(&arena);
-  if (pdf == NULL)
+  if (pdf == NULL) {
+    arena_destroy(&arena);
+    munmap(file_data, filesize);
+    close(fd);
     return 1;
+  }
   if (!pdf_init(pdf, output_path)) {
+    arena_destroy(&arena);
+    munmap(file_data, filesize);
+    close(fd);
     return 1;
   }
 
   Render_Context *render = render_create(&arena, MAX_PAGES);
-  if (render == NULL)
+  if (render == NULL) {
+    arena_destroy(&arena);
+    munmap(file_data, filesize);
+    close(fd);
     return 1;
-  if (!render_document(render, pdf, root))
+  }
+
+  if (!render_document(render, pdf, root)) {
+    arena_destroy(&arena);
+    munmap(file_data, filesize);
+    close(fd);
     return 1;
+  }
 
   arena_destroy(&arena);
   munmap(file_data, filesize);
