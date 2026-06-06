@@ -24,6 +24,7 @@ int getopt(int ___argc, char *const *___argv, const char *__shortopts);
 int main(int argc, char *argv[]) {
   struct stat st;
   int opt;
+  int ret = 1;
 
   const char *input_path = NULL;
   const char *output_path = DEFAULT_OUTPUT_PATH;
@@ -80,52 +81,38 @@ int main(int argc, char *argv[]) {
 
   Parser_Context *parser = parser_create(&arena);
   if (parser == NULL) {
-    arena_destroy(&arena);
-    munmap(file_data, filesize);
-    close(fd);
-    return 1;
+    goto cleanup;
   }
 
   Node *root = parser_parse(parser, file_data, filesize);
   if (root == NULL) {
-    arena_destroy(&arena);
-    munmap(file_data, filesize);
-    close(fd);
-    return 1;
+    goto cleanup;
   }
 
   PDF_Context *pdf = pdf_create(&arena);
   if (pdf == NULL) {
-    arena_destroy(&arena);
-    munmap(file_data, filesize);
-    close(fd);
-    return 1;
+    goto cleanup;
   }
   if (!pdf_init(pdf, output_path)) {
-    arena_destroy(&arena);
-    munmap(file_data, filesize);
-    close(fd);
-    return 1;
+    goto cleanup;
   }
 
   Render_Context *render = render_create(&arena, MAX_PAGES);
   if (render == NULL) {
-    arena_destroy(&arena);
-    munmap(file_data, filesize);
-    close(fd);
-    return 1;
+    goto cleanup;
   }
 
   if (!render_document(render, pdf, root)) {
-    arena_destroy(&arena);
-    munmap(file_data, filesize);
-    close(fd);
-    return 1;
+    goto cleanup;
   }
 
-  arena_destroy(&arena);
-  munmap(file_data, filesize);
-  close(fd);
+  ret = 0;
 
-  return 0;
+cleanup:
+  if (file_data != MAP_FAILED)
+    munmap(file_data, filesize);
+  if (fd >= 0)
+    close(fd);
+  arena_destroy(&arena);
+  return ret;
 }
