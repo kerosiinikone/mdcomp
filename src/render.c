@@ -127,6 +127,10 @@ static void set_font_for_span(Page_Context *ctx, String_Type span_type,
   }
 }
 
+static size_t get_page_start_position(size_t list_depth) {
+  return PAGE_MARGIN + list_depth * LIST_INDENT_STEP;
+}
+
 static bool handle_line_wrap(Render_Context *r, Page_Context **curr_ctx,
                              Text_Span *span, Node_Type type, int list_depth,
                              char *segment_start, size_t emit_length,
@@ -226,8 +230,7 @@ static bool render_text_spans(Render_Context *r, Page_Context **curr_ctx,
 static bool render_heading_node(Render_Context *r, Page_Context **curr_ctx,
                                 Node *node) {
   r->global_cursor -= BODY_OFFSET;
-  pdf_stream_set_cursor(*curr_ctx,
-                        PAGE_MARGIN + node->list_depth * LIST_INDENT_STEP,
+  pdf_stream_set_cursor(*curr_ctx, get_page_start_position(node->list_depth),
                         r->global_cursor);
 
   if (!render_text_spans(r, curr_ctx, node, node_font_size(node->type)))
@@ -239,8 +242,7 @@ static bool render_heading_node(Render_Context *r, Page_Context **curr_ctx,
 
 static bool render_list_node(Render_Context *r, Page_Context **curr_ctx,
                              Node *node) {
-  pdf_stream_set_cursor(*curr_ctx,
-                        PAGE_MARGIN + node->list_depth * LIST_INDENT_STEP,
+  pdf_stream_set_cursor(*curr_ctx, get_page_start_position(node->list_depth),
                         r->global_cursor);
 
   pdf_stream_change_font(*curr_ctx, FONT_REGULAR, BODY_FONT_SIZE);
@@ -258,8 +260,7 @@ static bool render_list_node(Render_Context *r, Page_Context **curr_ctx,
 
 static bool render_paragraph_node(Render_Context *r, Page_Context **curr_ctx,
                                   Node *node) {
-  pdf_stream_set_cursor(*curr_ctx,
-                        PAGE_MARGIN + node->list_depth * LIST_INDENT_STEP,
+  pdf_stream_set_cursor(*curr_ctx, get_page_start_position(node->list_depth),
                         r->global_cursor);
 
   if (!render_text_spans(r, curr_ctx, node, BODY_FONT_SIZE))

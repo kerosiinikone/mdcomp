@@ -5,7 +5,7 @@
 
 #include "arena.h"
 
-#define MAX_LIST_COUNT 5
+#define MAX_LIST_COUNT 10
 #define MAX_HASH_COUNT 4
 
 typedef struct Parser_Context Parser_Context;

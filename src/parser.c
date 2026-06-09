@@ -291,10 +291,10 @@ static bool handle_list(Parser_Context *p, size_t n) {
     size_t prev_indent = p->list->list_depths[p->list->stack_top];
 
     if (p->list->indent_level > prev_indent) {
-      if (p->list->stack_top >= MAX_LIST_COUNT - 1)
-        return false;
-      push_stack(p->list, list);
-
+      if (p->list->stack_top < MAX_LIST_COUNT - 1)
+        push_stack(p->list, list);
+      else
+	attach_stack_top(p->list, list);
       p->curr_node->child = list;
     } else if (p->list->indent_level < prev_indent) {
       pop_stack_until(p->list);
