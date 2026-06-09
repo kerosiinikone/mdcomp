@@ -16,6 +16,11 @@
   (type) == NODE_ROOT || (type) == NODE_HEADING ||                             \
       (type) == NODE_MEDIUM_HEADING || (type) == NODE_SMALL_HEADING
 
+#define IS_NON_LINK_CHAR(c)                                                    \
+  (c) < 33 || (c) > 126 || (c) == '"' || (c) == '<' || (c) == '>' ||           \
+      (c) == '\\' || (c) == '^' || (c) == '`' || (c) == '{' || (c) == '|' ||   \
+      (c) == '}' || (c) == ')' || (c) == '('
+
 typedef bool (*Format_Parser)(Parser_Context *p);
 
 typedef struct {
@@ -294,7 +299,7 @@ static bool handle_list(Parser_Context *p, size_t n) {
       if (p->list->stack_top < MAX_LIST_COUNT - 1)
         push_stack(p->list, list);
       else
-	attach_stack_top(p->list, list);
+        attach_stack_top(p->list, list);
       p->curr_node->child = list;
     } else if (p->list->indent_level < prev_indent) {
       pop_stack_until(p->list);
@@ -321,7 +326,7 @@ static bool handle_list(Parser_Context *p, size_t n) {
 }
 
 static bool find_closing_marker(Parser_Context *p, const char *marker,
-                                size_t marker_len) {
+                                size_t marker_len, bool is_underscore) {
   const char *search = p->ptr + marker_len;
 
   while (search < p->end) {
@@ -335,9 +340,18 @@ static bool find_closing_marker(Parser_Context *p, const char *marker,
         break;
       }
     }
-    if (matches && search > p->ptr + marker_len &&
-        !isspace((unsigned char)search[-1])) {
-      return true;
+    bool has_prev_space =
+        search > p->ptr + marker_len && !isspace((unsigned char)search[-1]);
+    bool has_next_break_char = isspace((unsigned char)search[marker_len]) ||
+                IS_NON_LINK_CHAR(search[marker_len]);
+
+    if (is_underscore) {
+      if (matches && has_prev_space && has_next_break_char)
+        return true;
+    } else {
+      if (matches && has_prev_space) {
+        return true;
+      }
     }
     search++;
   }
@@ -345,7 +359,8 @@ static bool find_closing_marker(Parser_Context *p, const char *marker,
 }
 
 static bool validate_format_marker(Parser_Context *p, const char *marker,
-                                   size_t marker_len, bool is_closing) {
+                                   size_t marker_len, bool is_closing,
+                                   bool is_underscore) {
   if (is_closing) {
     if (isspace((unsigned char)p->ptr[-1]))
       return false;
@@ -353,7 +368,7 @@ static bool validate_format_marker(Parser_Context *p, const char *marker,
     if (!PARSER_CHECK_BOUNDS(p, marker_len) ||
         isspace((unsigned char)p->ptr[marker_len]))
       return false;
-    if (!find_closing_marker(p, marker, marker_len))
+    if (!find_closing_marker(p, marker, marker_len, is_underscore))
       return false;
   }
   return true;
@@ -362,24 +377,24 @@ static bool validate_format_marker(Parser_Context *p, const char *marker,
 static bool parse_bold(Parser_Context *p) {
   switch (p->curr_fmt) {
   case STRING_BOLD: {
-    if (!validate_format_marker(p, "**", 2, true))
+    if (!validate_format_marker(p, "**", 2, true, false))
       return false;
     p->curr_fmt = STRING_REGULAR;
   } break;
   case STRING_ITALIC: {
-    if (!validate_format_marker(p, "**", 2, false))
+    if (!validate_format_marker(p, "**", 2, false, false))
       return false;
     p->has_outer_span = true;
     p->outer_fmt = STRING_ITALIC;
     p->curr_fmt = STRING_BI;
   } break;
   case STRING_REGULAR: {
-    if (!validate_format_marker(p, "**", 2, false))
+    if (!validate_format_marker(p, "**", 2, false, false))
       return false;
     p->curr_fmt = STRING_BOLD;
   } break;
   case STRING_BI: {
-    if (!validate_format_marker(p, "**", 2, true))
+    if (!validate_format_marker(p, "**", 2, true, false))
       return false;
     if (p->has_outer_span) {
       p->curr_fmt = p->outer_fmt;
@@ -393,12 +408,12 @@ static bool parse_bold(Parser_Context *p) {
 static bool parse_bold_italic(Parser_Context *p) {
   switch (p->curr_fmt) {
   case STRING_REGULAR: {
-    if (!validate_format_marker(p, "***", 3, false))
+    if (!validate_format_marker(p, "***", 3, false, false))
       return false;
     p->curr_fmt = STRING_BI;
   } break;
   case STRING_BI: {
-    if (!validate_format_marker(p, "***", 3, true))
+    if (!validate_format_marker(p, "***", 3, true, false))
       return false;
     p->curr_fmt = STRING_REGULAR;
   } break;
@@ -412,24 +427,24 @@ static bool parse_bold_italic(Parser_Context *p) {
 static bool parse_italic(Parser_Context *p) {
   switch (p->curr_fmt) {
   case STRING_ITALIC: {
-    if (!validate_format_marker(p, "*", 1, true))
+    if (!validate_format_marker(p, "*", 1, true, false))
       return false;
     p->curr_fmt = STRING_REGULAR;
   } break;
   case STRING_REGULAR: {
-    if (!validate_format_marker(p, "*", 1, false))
+    if (!validate_format_marker(p, "*", 1, false, false))
       return false;
     p->curr_fmt = STRING_ITALIC;
   } break;
   case STRING_BOLD: {
-    if (!validate_format_marker(p, "*", 1, false))
+    if (!validate_format_marker(p, "*", 1, false, false))
       return false;
     p->has_outer_span = true;
     p->outer_fmt = STRING_BOLD;
     p->curr_fmt = STRING_BI;
   } break;
   case STRING_BI: {
-    if (!validate_format_marker(p, "*", 1, true))
+    if (!validate_format_marker(p, "*", 1, true, false))
       return false;
     if (p->has_outer_span) {
       p->curr_fmt = p->outer_fmt;
@@ -451,24 +466,24 @@ static Underscore_Type get_underscore_type(Parser_Context *p) {
 static bool parse_underscore_italic(Parser_Context *p) {
   switch (p->curr_fmt) {
   case STRING_ITALIC: {
-    if (!validate_format_marker(p, "_", 1, true))
+    if (!validate_format_marker(p, "_", 1, true, true))
       return false;
     p->curr_fmt = STRING_REGULAR;
   } break;
   case STRING_REGULAR: {
-    if (!validate_format_marker(p, "_", 1, false))
+    if (!validate_format_marker(p, "_", 1, false, true))
       return false;
     p->curr_fmt = STRING_ITALIC;
   } break;
   case STRING_BOLD: {
-    if (!validate_format_marker(p, "_", 1, false))
+    if (!validate_format_marker(p, "_", 1, false, true))
       return false;
     p->has_outer_span = true;
     p->outer_fmt = STRING_BOLD;
     p->curr_fmt = STRING_BI;
   } break;
   case STRING_BI: {
-    if (!validate_format_marker(p, "_", 1, true))
+    if (!validate_format_marker(p, "_", 1, true, true))
       return false;
     if (p->has_outer_span) {
       p->curr_fmt = p->outer_fmt;
@@ -482,24 +497,24 @@ static bool parse_underscore_italic(Parser_Context *p) {
 static bool parse_underscore_bold(Parser_Context *p) {
   switch (p->curr_fmt) {
   case STRING_BOLD: {
-    if (!validate_format_marker(p, "__", 2, true))
+    if (!validate_format_marker(p, "__", 2, true, true))
       return false;
     p->curr_fmt = STRING_REGULAR;
   } break;
   case STRING_ITALIC: {
-    if (!validate_format_marker(p, "__", 2, false))
+    if (!validate_format_marker(p, "__", 2, false, true))
       return false;
     p->has_outer_span = true;
     p->outer_fmt = STRING_ITALIC;
     p->curr_fmt = STRING_BI;
   } break;
   case STRING_REGULAR: {
-    if (!validate_format_marker(p, "__", 2, false))
+    if (!validate_format_marker(p, "__", 2, false, true))
       return false;
     p->curr_fmt = STRING_BOLD;
   } break;
   case STRING_BI: {
-    if (!validate_format_marker(p, "__", 2, true))
+    if (!validate_format_marker(p, "__", 2, true, true))
       return false;
     if (p->has_outer_span) {
       p->curr_fmt = p->outer_fmt;
