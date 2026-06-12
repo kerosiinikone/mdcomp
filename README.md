@@ -8,8 +8,11 @@ Compiles my **Markdown notes** into a **PDF subset** without needing to sync and
 
 - Headings
 - Formatting
-- Regular lists (BUT not numbered lists)
+- Regular lists
 - Horizontal lines
+- ~Numbered lists~
+- ~List headers~
+- ~Code blocks~
 
 ## Example with defaults
 
@@ -17,5 +20,4 @@ Compiles my **Markdown notes** into a **PDF subset** without needing to sync and
 make all
 make run
 make rebuild
-
 ```

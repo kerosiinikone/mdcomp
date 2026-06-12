@@ -21,6 +21,11 @@
       (c) == '\\' || (c) == '^' || (c) == '`' || (c) == '{' || (c) == '|' ||   \
       (c) == '}' || (c) == ')' || (c) == '('
 
+#define IS_LINK_CHAR(c)                                                        \
+  (c) >= 33 && (c) <= 126 && (c) != '"' && (c) != '<' && (c) != '>' &&         \
+      (c) != '\\' && (c) != '^' && (c) != '`' && (c) != '{' && (c) != '|' &&   \
+      (c) != '}' && (c) != ')' && (c) != '('
+
 typedef bool (*Format_Parser)(Parser_Context *p);
 
 typedef struct {
@@ -325,6 +330,24 @@ static bool handle_list(Parser_Context *p, size_t n) {
   return true;
 }
 
+static bool marker_has_prev_space(const char *curr, const char *start,
+                                  size_t marker_len) {
+  return curr > start + marker_len && !isspace((unsigned char)curr[-1]);
+}
+
+static bool marker_has_next_break_char(const char *curr, const char *end,
+                                       size_t marker_len) {
+  return curr + marker_len < end && (isspace((unsigned char)curr[marker_len]) ||
+                                     IS_NON_LINK_CHAR(curr[marker_len]));
+}
+
+static bool marker_not_has_next_break_char(const char *curr, const char *end,
+                                           size_t marker_len) {
+  return curr + marker_len >= end ||
+         (!isspace((unsigned char)curr[marker_len]) &&
+          IS_LINK_CHAR(curr[marker_len]));
+}
+
 static bool find_closing_marker(Parser_Context *p, const char *marker,
                                 size_t marker_len, bool is_underscore) {
   const char *search = p->ptr + marker_len;
@@ -340,16 +363,20 @@ static bool find_closing_marker(Parser_Context *p, const char *marker,
         break;
       }
     }
-    bool has_prev_space =
-        search > p->ptr + marker_len && !isspace((unsigned char)search[-1]);
-    bool has_next_break_char = isspace((unsigned char)search[marker_len]) ||
-                IS_NON_LINK_CHAR(search[marker_len]);
+    if (!matches) {
+      search++;
+      continue;
+    }
+
+    bool has_prev_space = marker_has_prev_space(search, p->ptr, marker_len);
+    bool has_next_break_char =
+        marker_has_next_break_char(search, p->end, marker_len);
 
     if (is_underscore) {
-      if (matches && has_prev_space && has_next_break_char)
+      if (has_prev_space && has_next_break_char)
         return true;
     } else {
-      if (matches && has_prev_space) {
+      if (has_prev_space) {
         return true;
       }
     }
@@ -362,8 +389,15 @@ static bool validate_format_marker(Parser_Context *p, const char *marker,
                                    size_t marker_len, bool is_closing,
                                    bool is_underscore) {
   if (is_closing) {
-    if (isspace((unsigned char)p->ptr[-1]))
-      return false;
+    if (is_underscore) {
+      if (isspace((unsigned char)p->ptr[-1]) ||
+          !PARSER_CHECK_BOUNDS(p, marker_len) ||
+          marker_not_has_next_break_char(p->ptr, p->end, marker_len))
+        return false;
+    } else {
+      if (isspace((unsigned char)p->ptr[-1]))
+        return false;
+    }
   } else {
     if (!PARSER_CHECK_BOUNDS(p, marker_len) ||
         isspace((unsigned char)p->ptr[marker_len]))
